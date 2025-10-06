@@ -38,7 +38,8 @@
         {
           "origin": "https://notisync.com"
         }
-      ]
+      ],
+      "expo-font"
     ],
     "name": "notisync",
     "slug": "notisync"
