@@ -1,0 +1,46 @@
+{
+  "scheme": "notisync",
+  "orientation": "default",
+  "web": {
+    "output": "static"
+  },
+  "plugins": [
+    [
+      "expo-router",
+      {
+        "origin": "https://notisync.com"
+      }
+    ]
+  ],
+  "name": "notisync",
+  "slug": "notisync",
+  "extra": {
+    "router": {
+      "origin": "https://notisync.com"
+    },
+    "eas": {
+      "projectId": "eacad04e-aaa8-4ecb-a7bd-b70cfc3aee93"
+    }
+  },
+  "expo": {
+    "android": {
+      "package": "com.faithfulisuh.notisync"
+    },
+    "userInterfaceStyle": "automatic",
+    "scheme": "notisync",
+    "orientation": "default",
+    "web": {
+      "output": "static"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "origin": "https://notisync.com"
+        }
+      ]
+    ],
+    "name": "notisync",
+    "slug": "notisync"
+  }
+}
