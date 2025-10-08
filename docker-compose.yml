@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: notisync-postgres
+    environment:
+      POSTGRES_DB: notisync
+      POSTGRES_USER: notisync
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./services/notisync/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notisync -d notisync"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: notisync-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # NotiSync API Service
+  api:
+    build:
+      context: ./services/notisync
+      dockerfile: Dockerfile
+    container_name: notisync-api
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: notisync
+      DB_PASSWORD: password
+      DB_NAME: notisync
+      DB_SSL_MODE: disable
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      REDIS_DB: 0
+      JWT_SECRET: your-development-secret-key
+      JWT_EXPIRATION_HOURS: 24
+      ENVIRONMENT: development
+      LOG_LEVEL: debug
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/notisync:/app
+    restart: unless-stopped
+
+  # Classification Service (Python)
+  classification:
+    build:
+      context: ./services/ml
+      dockerfile: Dockerfile
+    container_name: notisync-classification
+    ports:
+      - "8081:8081"
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      API_HOST: api
+      API_PORT: 8080
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/ml:/app
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -1,0 +1,195 @@
+# NotiSync API Test Requests
+# Use this file with VS Code REST Client extension or similar tools
+
+@baseUrl = http://localhost:8080
+@apiUrl = {{baseUrl}}/api/v1
+
+### Health Check
+GET {{baseUrl}}/health
+
+### System Info
+GET {{apiUrl}}/system
+
+### API Info
+GET {{apiUrl}}/info
+
+### User Registration
+POST {{apiUrl}}/auth/register
+Content-Type: application/json
+
+{
+    "email": "test@example.com",
+    "password": "password123",
+    "first_name": "Test",
+    "last_name": "User"
+}
+
+### User Login
+# @name login
+POST {{apiUrl}}/auth/login
+Content-Type: application/json
+
+{
+    "email": "test@example.com",
+    "password": "password123"
+}
+
+### Extract JWT Token
+@jwt = {{login.response.body.token}}
+
+### Device Registration
+POST {{apiUrl}}/auth/devices
+Content-Type: application/json
+Authorization: Bearer {{jwt}}
+
+{
+    "name": "Test Device",
+    "platform": "android",
+    "device_token": "test-device-token-123"
+}
+
+### Create Notification
+POST {{apiUrl}}/notifications
+Content-Type: application/json
+Authorization: Bearer {{jwt}}
+
+{
+    "app_name": "Slack",
+    "title": "Team Meeting",
+    "body": "Daily standup in 10 minutes",
+    "category": "Work",
+    "priority": 2
+}
+
+### Create More Test Notifications
+POST {{apiUrl}}/notifications
+Content-Type: application/json
+Authorization: Bearer {{jwt}}
+
+{
+    "app_name": "WhatsApp",
+    "title": "Personal Message",
+    "body": "Hey, how are you?",
+    "category": "Personal",
+    "priority": 0
+}
+
+###
+POST {{apiUrl}}/notifications
+Content-Type: application/json
+Authorization: Bearer {{jwt}}
+
+{
+    "app_name": "Banking App",
+    "title": "Security Alert",
+    "body": "Your OTP code is 123456",
+    "category": "Personal",
+    "priority": 3
+}
+
+###
+POST {{apiUrl}}/notifications
+Content-Type: application/json
+Authorization: Bearer {{jwt}}
+
+{
+    "app_name": "Shopping App",
+    "title": "Sale Alert",
+    "body": "50% off everything!",
+    "category": "Junk",
+    "priority": 0
+}
+
+### Get Notifications
+GET {{apiUrl}}/notifications
+Authorization: Bearer {{jwt}}
+
+### Get Notifications with Filters
+GET {{apiUrl}}/notifications?category=Work&limit=10
+Authorization: Bearer {{jwt}}
+
+### Notification History
+GET {{apiUrl}}/history
+Authorization: Bearer {{jwt}}
+
+### Search Notifications
+GET {{apiUrl}}/history/search?q=meeting
+Authorization: Bearer {{jwt}}
+
+### Advanced Search
+GET {{apiUrl}}/history/search?category=Work&read_status=unread&sort_by=created_at&sort_order=desc
+Authorization: Bearer {{jwt}}
+
+### History Statistics
+GET {{apiUrl}}/history/stats?days=30
+Authorization: Bearer {{jwt}}
+
+### App Breakdown
+GET {{apiUrl}}/history/apps?days=7
+Authorization: Bearer {{jwt}}
+
+### History Metrics
+GET {{apiUrl}}/history/metrics?days=30
+Authorization: Bearer {{jwt}}
+
+### Daily Digest
+GET {{apiUrl}}/digest
+Authorization: Bearer {{jwt}}
+
+### Daily Digest for Specific Date
+GET {{apiUrl}}/digest/date/2024-01-31
+Authorization: Bearer {{jwt}}
+
+### Weekly Digests
+GET {{apiUrl}}/digest/weekly
+Authorization: Bearer {{jwt}}
+
+### Digest Summary
+GET {{apiUrl}}/digest/summary
+Authorization: Bearer {{jwt}}
+
+### User Profile
+GET {{apiUrl}}/user/profile
+Authorization: Bearer {{jwt}}
+
+### Update User Profile
+PUT {{apiUrl}}/user/profile
+Content-Type: application/json
+Authorization: Bearer {{jwt}}
+
+{
+    "first_name": "Updated",
+    "last_name": "Name"
+}
+
+### Get Devices
+GET {{apiUrl}}/devices
+Authorization: Bearer {{jwt}}
+
+### WebSocket Stats
+GET {{apiUrl}}/websocket/stats
+Authorization: Bearer {{jwt}}
+
+### User WebSocket Stats
+GET {{apiUrl}}/websocket/users/stats
+Authorization: Bearer {{jwt}}
+
+### Create User Rule
+POST {{apiUrl}}/rules
+Content-Type: application/json
+Authorization: Bearer {{jwt}}
+
+{
+    "name": "Mute Shopping Notifications",
+    "app_filter": "Shopping App",
+    "keyword_filter": "",
+    "action": "mute",
+    "is_active": true
+}
+
+### Get User Rules
+GET {{apiUrl}}/rules
+Authorization: Bearer {{jwt}}
+
+### Test Unauthorized Access (should return 401)
+GET {{apiUrl}}/notifications

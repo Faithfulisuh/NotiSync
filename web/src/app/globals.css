@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: system-ui, sans-serif;
+  }
+  
+  body {
+    @apply bg-gray-50 text-gray-900;
+  }
+}
+
+@layer components {
+  .notification-card {
+    @apply bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow;
+  }
+  
+  .notification-unread {
+    @apply border-l-4 border-l-blue-500 bg-blue-50;
+  }
+  
+  .notification-work {
+    @apply border-l-blue-500;
+  }
+  
+  .notification-personal {
+    @apply border-l-green-500;
+  }
+  
+  .notification-junk {
+    @apply border-l-red-500;
+  }
+  
+  .btn-primary {
+    @apply bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors;
+  }
+  
+  .btn-danger {
+    @apply bg-danger-600 text-white px-4 py-2 rounded-lg hover:bg-danger-700 transition-colors;
+  }
+}

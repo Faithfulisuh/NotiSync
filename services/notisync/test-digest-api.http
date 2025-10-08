@@ -1,0 +1,22 @@
+# Daily Digest API Test Requests
+# These requests test the daily digest functionality
+
+### Get today's digest
+GET http://localhost:8080/api/v1/digest
+Authorization: Bearer {{auth_token}}
+
+### Get today's digest (alternative endpoint)
+GET http://localhost:8080/api/v1/digest/today
+Authorization: Bearer {{auth_token}}
+
+### Get digest for specific date
+GET http://localhost:8080/api/v1/digest/date/2024-01-31
+Authorization: Bearer {{auth_token}}
+
+### Get weekly digests
+GET http://localhost:8080/api/v1/digest/weekly
+Authorization: Bearer {{auth_token}}
+
+### Get digest summary
+GET http://localhost:8080/api/v1/digest/summary
+Authorization: Bearer {{auth_token}}

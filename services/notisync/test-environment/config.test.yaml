@@ -1,0 +1,25 @@
+server:
+  port: 8080
+  environment: "development"
+
+database:
+  host: "localhost"
+  port: 5433
+  user: "notisync"
+  password: "password123"
+  dbname: "notisync_test"
+  sslmode: "disable"
+
+redis:
+  host: "localhost"
+  port: 6380
+  db: 0
+  password: ""
+
+jwt:
+  secret: "test-secret-key-for-development-only"
+  expiration: "24h"
+
+classification:
+  service_url: "http://localhost:8001"
+  timeout: "30s"
