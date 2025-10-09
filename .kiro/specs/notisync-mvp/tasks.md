@@ -164,6 +164,8 @@
 
 - [ ] 16.1. Implement SQLite local storage for mobile app
 
+
+
   - Replace AsyncStorage with SQLite database for persistent storage
   - Create notification, user, and sync queue tables
   - Implement CRUD operations for offline notification management
