@@ -1,28 +1,10 @@
 {
-  "scheme": "notisync",
-  "orientation": "default",
-  "web": {
-    "output": "static"
-  },
-  "plugins": [
-    [
-      "expo-router",
-      {
-        "origin": "https://notisync.com"
-      }
-    ]
-  ],
-  "name": "notisync",
-  "slug": "notisync",
-  "extra": {
-    "router": {
-      "origin": "https://notisync.com"
-    },
-    "eas": {
-      "projectId": "eacad04e-aaa8-4ecb-a7bd-b70cfc3aee93"
-    }
-  },
   "expo": {
+    "name": "notisync",
+    "slug": "notisync",
+    "scheme": "notisync",
+    "orientation": "default",
+    "userInterfaceStyle": "automatic",
     "android": {
       "package": "com.faithfulisuh.notisync",
       "permissions": [
@@ -30,8 +12,15 @@
         "VIBRATE",
         "WAKE_LOCK",
         "SYSTEM_ALERT_WINDOW",
-        "BIND_NOTIFICATION_LISTENER_SERVICE"
-      ]
+        "BIND_NOTIFICATION_LISTENER_SERVICE",
+        "FOREGROUND_SERVICE",
+        "POST_NOTIFICATIONS",
+        "ACCESS_NOTIFICATION_POLICY",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_EXTERNAL_STORAGE"
+      ],
+      "usesCleartextTraffic": true,
+      "allowBackup": false
     },
     "ios": {
       "bundleIdentifier": "com.faithfulisuh.notisync",
@@ -42,9 +31,6 @@
         ]
       }
     },
-    "userInterfaceStyle": "automatic",
-    "scheme": "notisync",
-    "orientation": "default",
     "web": {
       "output": "static"
     },
@@ -59,14 +45,11 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/notification-icon.png",
           "color": "#ffffff",
           "defaultChannel": "default"
         }
       ]
     ],
-    "name": "notisync",
-    "slug": "notisync",
     "extra": {
       "router": {
         "origin": "https://notisync.com"

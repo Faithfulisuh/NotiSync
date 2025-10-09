@@ -1,5 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 import { CapturedNotification, SyncedNotification, NotificationStats } from '../types/notification';
+import { migrationService } from './migrations';
 
 export interface DatabaseUser {
   id: string;
@@ -46,8 +47,7 @@ class DatabaseService {
 
     try {
       this.db = await SQLite.openDatabaseAsync('notisync.db');
-      await this.createTables();
-      await this.runMigrations();
+      await migrationService.runMigrations(this.db);
       this.isInitialized = true;
       console.log('Database initialized successfully');
     } catch (error) {
@@ -56,95 +56,7 @@ class DatabaseService {
     }
   }
 
-  private async createTables(): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
 
-    // Users table
-    await this.db.execAsync(`
-      CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        email TEXT UNIQUE NOT NULL,
-        first_name TEXT NOT NULL,
-        last_name TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      );
-    `);
-
-    // Auth tokens table
-    await this.db.execAsync(`
-      CREATE TABLE IF NOT EXISTS auth_tokens (
-        id INTEGER PRIMARY KEY,
-        access_token TEXT NOT NULL,
-        refresh_token TEXT NOT NULL,
-        expires_at INTEGER NOT NULL,
-        created_at INTEGER NOT NULL
-      );
-    `);
-
-    // Notifications table
-    await this.db.execAsync(`
-      CREATE TABLE IF NOT EXISTS notifications (
-        id TEXT PRIMARY KEY,
-        server_id TEXT,
-        app_name TEXT NOT NULL,
-        title TEXT NOT NULL,
-        body TEXT NOT NULL,
-        category TEXT DEFAULT 'Personal',
-        priority INTEGER DEFAULT 0,
-        timestamp INTEGER NOT NULL,
-        package_name TEXT,
-        icon TEXT,
-        actions TEXT, -- JSON stringified NotificationAction[]
-        extras TEXT, -- JSON stringified Record<string, any>
-        synced INTEGER DEFAULT 0,
-        sync_attempts INTEGER DEFAULT 0,
-        last_sync_attempt INTEGER,
-        is_read INTEGER DEFAULT 0,
-        is_dismissed INTEGER DEFAULT 0,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      );
-    `);
-
-    // Sync queue table
-    await this.db.execAsync(`
-      CREATE TABLE IF NOT EXISTS sync_queue (
-        id TEXT PRIMARY KEY,
-        notification_id TEXT NOT NULL,
-        action TEXT NOT NULL,
-        data TEXT NOT NULL,
-        attempts INTEGER DEFAULT 0,
-        created_at INTEGER NOT NULL,
-        last_attempt INTEGER,
-        error TEXT,
-        FOREIGN KEY (notification_id) REFERENCES notifications (id) ON DELETE CASCADE
-      );
-    `);
-
-    // App settings table
-    await this.db.execAsync(`
-      CREATE TABLE IF NOT EXISTS app_settings (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL,
-        updated_at INTEGER NOT NULL
-      );
-    `);
-
-    // Create indexes for better performance
-    await this.db.execAsync(`
-      CREATE INDEX IF NOT EXISTS idx_notifications_timestamp ON notifications (timestamp DESC);
-      CREATE INDEX IF NOT EXISTS idx_notifications_synced ON notifications (synced);
-      CREATE INDEX IF NOT EXISTS idx_notifications_category ON notifications (category);
-      CREATE INDEX IF NOT EXISTS idx_sync_queue_attempts ON sync_queue (attempts);
-      CREATE INDEX IF NOT EXISTS idx_sync_queue_created_at ON sync_queue (created_at);
-    `);
-  }
-
-  private async runMigrations(): Promise<void> {
-    // Future migrations will be added here
-    // For now, we'll just ensure the schema is up to date
-  }
 
   // Auth token methods
   async saveAuthTokens(tokens: AuthTokens): Promise<void> {
