@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Alert, Platform } from 'react-native';
 import { useNotificationCapture } from '../hooks/useNotificationCapture';
 import { Storage } from '../utils/storage';
-import { apiService } from '../services/api';
+
 
 export const NotificationSetup: React.FC = () => {
   const [state, actions] = useNotificationCapture();
@@ -69,48 +69,7 @@ export const NotificationSetup: React.FC = () => {
     }
   };
 
-  const handleRegisterDevice = async () => {
-    // TODO: Re-enable after cross-app notification capture is implemented
-    Alert.alert(
-      'Feature Temporarily Disabled',
-      'Device registration is temporarily disabled while we implement cross-app notification capture. Focus is on getting Android NotificationListenerService working first.',
-      [{ text: 'OK' }]
-    );
-    return;
 
-    // // Check if user is authenticated first
-    // if (!apiService.isAuthenticated()) {
-    //   Alert.alert(
-    //     'Authentication Required',
-    //     'Please log in to your account first to register this device with the server.',
-    //     [
-    //       { text: 'Cancel', style: 'cancel' },
-    //       {
-    //         text: 'Go to Login', onPress: () => {
-    //           // Navigate to login screen - you might want to implement navigation here
-    //           Alert.alert('Login Required', 'Please use the login screen to authenticate first.');
-    //         }
-    //       }
-    //     ]
-    //   );
-    //   return;
-    // }
-
-    // const success = await actions.registerDevice();
-    // if (success) {
-    //   Alert.alert(
-    //     'Device Registered! ☁️',
-    //     'Your device is now connected to the NotiSync server. Notifications will be synced automatically.',
-    //     [{ text: 'Excellent!' }]
-    //   );
-    // } else {
-    //   Alert.alert(
-    //     'Registration Failed',
-    //     'Could not register device with server. You can still use local capture and try again later.',
-    //     [{ text: 'OK' }]
-    //   );
-    // }
-  };
 
   if (Platform.OS === 'web') {
     return (

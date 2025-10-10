@@ -3,23 +3,30 @@ import { Platform, ScrollView, View, Text, TouchableOpacity } from "react-native
 import "../utils/webPolyfills"; // Import web polyfills
 import { ErrorTest } from "../components/ErrorTest";
 import { NotificationSetup } from "../components/NotificationSetup";
-import { NotificationDashboard } from "../components/NotificationDashboard";
+
 import { WebTestMode } from "../components/WebTestMode";
 import { SettingsScreen } from "../components/SettingsScreen";
-import { AuthScreen } from "../components/AuthScreen";
+import { WelcomeScreen } from "../components/WelcomeScreen";
+import { SignInScreen } from "../components/SignInScreen";
+import { SignUpScreen } from "../components/SignUpScreen";
+import { DashboardScreen } from "../components/DashboardScreen";
+import { NotificationsListScreen } from "../components/NotificationsListScreen";
 import { apiService } from "../services/api";
 
 const VIEWS = {
-  AUTH: 'auth',
+  WELCOME: 'welcome',
+  SIGNIN: 'signin',
+  SIGNUP: 'signup',
   SETUP: 'setup',
   DASHBOARD: 'dashboard',
+  NOTIFICATIONS: 'notifications',
   SETTINGS: 'settings',
 } as const;
 
 type ViewType = (typeof VIEWS)[keyof typeof VIEWS];
 
 const Index = () => {
-  const [currentView, setCurrentView] = useState<ViewType>(VIEWS.AUTH);
+  const [currentView, setCurrentView] = useState<ViewType>(VIEWS.WELCOME);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
 
@@ -46,15 +53,15 @@ const Index = () => {
         setIsAuthenticated(authenticated);
         
         if (authenticated) {
-          console.log('User is authenticated, showing setup screen');
-          setCurrentView(VIEWS.SETUP);
+          console.log('User is authenticated, showing dashboard screen');
+          setCurrentView(VIEWS.DASHBOARD);
         } else if (authState.lastAuthAttempt) {
           // User has tried to authenticate before but failed/expired
-          console.log('Showing auth screen due to previous failed attempt');
-          setCurrentView(VIEWS.AUTH);
+          console.log('Showing signin screen due to previous failed attempt');
+          setCurrentView(VIEWS.SIGNIN);
         } else {
-          console.log('No authentication found, showing auth screen');
-          setCurrentView(VIEWS.AUTH);
+          console.log('No authentication found, showing welcome screen');
+          setCurrentView(VIEWS.WELCOME);
         }
       } catch (error) {
         console.error('Auth check failed:', error);
@@ -85,14 +92,14 @@ const Index = () => {
   }, [isAuthenticated]);
 
   const handleAuthSuccess = async () => {
-    console.log('handleAuthSuccess called - transitioning to setup screen');
+    console.log('handleAuthSuccess called - transitioning to dashboard screen');
     console.log('Current state before update:', { isAuthenticated, currentView });
     
     // Force state updates
     setIsAuthenticated(true);
-    setCurrentView(VIEWS.SETUP);
+    setCurrentView(VIEWS.DASHBOARD);
     
-    console.log('State update called - should transition to SETUP view');
+    console.log('State update called - should transition to DASHBOARD view');
     
     // TODO: Re-enable device registration after cross-app notification capture is implemented
     // Wait a bit to ensure authentication state is fully propagated
@@ -122,7 +129,7 @@ const Index = () => {
   const handleLogout = async () => {
     await apiService.logout();
     setIsAuthenticated(false);
-    setCurrentView(VIEWS.AUTH);
+    setCurrentView(VIEWS.SIGNIN);
   };
 
   if (authLoading) {
@@ -133,130 +140,284 @@ const Index = () => {
     );
   }
 
-  // Show auth screen if not authenticated and user is trying to access auth-required features
-  if (currentView === VIEWS.AUTH) {
-    return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
+  // Handle different views
+  if (currentView === VIEWS.WELCOME) {
+    return (
+      <WelcomeScreen 
+        onGetStarted={() => setCurrentView(VIEWS.SIGNIN)}
+      />
+    );
+  }
+
+  if (currentView === VIEWS.SIGNIN) {
+    return (
+      <SignInScreen 
+        onSignInSuccess={handleAuthSuccess}
+        onSwitchToSignUp={() => setCurrentView(VIEWS.SIGNUP)}
+      />
+    );
+  }
+
+  if (currentView === VIEWS.SIGNUP) {
+    return (
+      <SignUpScreen 
+        onSignUpSuccess={handleAuthSuccess}
+        onSwitchToSignIn={() => setCurrentView(VIEWS.SIGNIN)}
+      />
+    );
   }
 
   if (currentView === VIEWS.DASHBOARD) {
-    return <NotificationDashboard />;
+    return (
+      <View className="flex-1">
+        <DashboardScreen 
+          onNavigateToNotifications={() => setCurrentView(VIEWS.NOTIFICATIONS)}
+          onNavigateToSettings={() => setCurrentView(VIEWS.SETTINGS)}
+        />
+        {/* Bottom Navigation */}
+        <View className="bg-white border-t border-gray-200 px-6 py-3">
+          <View className="flex-row justify-around">
+            <TouchableOpacity 
+              onPress={() => setCurrentView(VIEWS.DASHBOARD)}
+              className="items-center py-2"
+            >
+              <Text className="text-2xl mb-1">🏠</Text>
+              <Text className="text-xs font-medium text-blue-600">Dashboard</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => setCurrentView(VIEWS.NOTIFICATIONS)}
+              className="items-center py-2"
+            >
+              <Text className="text-2xl mb-1">🔔</Text>
+              <Text className="text-xs font-medium text-gray-500">Notifications</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => setCurrentView(VIEWS.SETUP)}
+              className="items-center py-2"
+            >
+              <Text className="text-2xl mb-1">⚙️</Text>
+              <Text className="text-xs font-medium text-gray-500">Setup</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => setCurrentView(VIEWS.SETTINGS)}
+              className="items-center py-2"
+            >
+              <Text className="text-2xl mb-1">👤</Text>
+              <Text className="text-xs font-medium text-gray-500">Settings</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  if (currentView === VIEWS.NOTIFICATIONS) {
+    return (
+      <View className="flex-1">
+        <NotificationsListScreen 
+          onBack={() => setCurrentView(VIEWS.DASHBOARD)}
+        />
+        {/* Bottom Navigation */}
+        <View className="bg-white border-t border-gray-200 px-6 py-3">
+          <View className="flex-row justify-around">
+            <TouchableOpacity 
+              onPress={() => setCurrentView(VIEWS.DASHBOARD)}
+              className="items-center py-2"
+            >
+              <Text className="text-2xl mb-1">🏠</Text>
+              <Text className="text-xs font-medium text-gray-500">Dashboard</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => setCurrentView(VIEWS.NOTIFICATIONS)}
+              className="items-center py-2"
+            >
+              <Text className="text-2xl mb-1">🔔</Text>
+              <Text className="text-xs font-medium text-blue-600">Notifications</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => setCurrentView(VIEWS.SETUP)}
+              className="items-center py-2"
+            >
+              <Text className="text-2xl mb-1">⚙️</Text>
+              <Text className="text-xs font-medium text-gray-500">Setup</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => setCurrentView(VIEWS.SETTINGS)}
+              className="items-center py-2"
+            >
+              <Text className="text-2xl mb-1">👤</Text>
+              <Text className="text-xs font-medium text-gray-500">Settings</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
   }
 
   if (currentView === VIEWS.SETTINGS) {
-    return <SettingsScreen onBack={() => setCurrentView(VIEWS.SETUP)} />;
+    return (
+      <View className="flex-1">
+        <SettingsScreen 
+          onBack={() => setCurrentView(VIEWS.DASHBOARD)} 
+          onSignOut={handleLogout}
+        />
+        {/* Bottom Navigation */}
+        <View className="bg-white border-t border-gray-200 px-6 py-3">
+          <View className="flex-row justify-around">
+            <TouchableOpacity 
+              onPress={() => setCurrentView(VIEWS.DASHBOARD)}
+              className="items-center py-2"
+            >
+              <Text className="text-2xl mb-1">🏠</Text>
+              <Text className="text-xs font-medium text-gray-500">Dashboard</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => setCurrentView(VIEWS.NOTIFICATIONS)}
+              className="items-center py-2"
+            >
+              <Text className="text-2xl mb-1">🔔</Text>
+              <Text className="text-xs font-medium text-gray-500">Notifications</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => setCurrentView(VIEWS.SETUP)}
+              className="items-center py-2"
+            >
+              <Text className="text-2xl mb-1">⚙️</Text>
+              <Text className="text-xs font-medium text-gray-500">Setup</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => setCurrentView(VIEWS.SETTINGS)}
+              className="items-center py-2"
+            >
+              <Text className="text-2xl mb-1">👤</Text>
+              <Text className="text-xs font-medium text-blue-600">Settings</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
   }
 
   return (
-    <ScrollView className="flex-1">
-      <ErrorTest />
+    <View className="flex-1">
+      <ScrollView className="flex-1">
+        <ErrorTest />
 
-      <View className="p-5">
-        <Text className="text-lg font-pbold mb-2.5 text-center text-slate-800">
-          🎉 NotiSync Ready!
-        </Text>
-        <Text className="text-center mb-2.5 text-gray-600 text-sm font-pregular">
-          Platform: {Platform.OS}
-        </Text>
-        <Text className="text-center mb-5 text-slate-700 text-base font-pregular">
-          Your notification sync app is ready to use.
-        </Text>
+        <View className="p-5">
+          <Text className="text-lg font-pbold mb-2.5 text-center text-slate-800">
+            🎉 NotiSync Ready!
+          </Text>
+          <Text className="text-center mb-2.5 text-gray-600 text-sm font-pregular">
+            Platform: {Platform.OS}
+          </Text>
+          <Text className="text-center mb-5 text-slate-700 text-base font-pregular">
+            Your notification sync app is ready to use.
+          </Text>
 
-        {Platform.OS === "web" ? (
-          <WebTestMode />
-        ) : (
-          <View className="bg-green-50 p-4 rounded-lg border-l-4 border-green-500 mb-5">
-            <Text className="text-base font-psemibold mb-2.5 text-slate-800">
-              📱 Native Platform Detected
-            </Text>
-            <Text className="text-sm text-slate-600 mb-1 font-pregular">
-              • Full notification capture available
-            </Text>
-            <Text className="text-sm text-slate-600 mb-1 font-pregular">
-              • Background tasks supported
-            </Text>
-            <Text className="text-sm text-slate-600 mb-1 font-pregular">
-              • Push notifications enabled
-            </Text>
-            <Text className="text-sm text-slate-600 font-pregular">
-              • All features fully functional
-            </Text>
+          {Platform.OS === "web" ? (
+            <WebTestMode />
+          ) : (
+            <View className="bg-green-50 p-4 rounded-lg border-l-4 border-green-500 mb-5">
+              <Text className="text-base font-psemibold mb-2.5 text-slate-800">
+                📱 Native Platform Detected
+              </Text>
+              <Text className="text-sm text-slate-600 mb-1 font-pregular">
+                • Full notification capture available
+              </Text>
+              <Text className="text-sm text-slate-600 mb-1 font-pregular">
+                • Background tasks supported
+              </Text>
+              <Text className="text-sm text-slate-600 mb-1 font-pregular">
+                • Push notifications enabled
+              </Text>
+              <Text className="text-sm text-slate-600 font-pregular">
+                • All features fully functional
+              </Text>
+            </View>
+          )}
+
+          {/* Authentication Status */}
+          <View className="mb-4 p-3 bg-gray-50 rounded-lg">
+            <View className="flex-row justify-between items-center">
+              <Text className="text-sm font-pmedium text-slate-700">
+                {isAuthenticated ? '🟢 Authenticated' : '🔴 Not Authenticated'}
+              </Text>
+              <TouchableOpacity
+                onPress={isAuthenticated ? handleLogout : () => setCurrentView(VIEWS.SIGNIN)}
+                className={`px-3 py-1 rounded ${isAuthenticated ? 'bg-red-100' : 'bg-blue-100'}`}
+              >
+                <Text className={`text-xs font-pmedium ${isAuthenticated ? 'text-red-700' : 'text-blue-700'}`}>
+                  {isAuthenticated ? 'Logout' : 'Login'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {isAuthenticated && (
+              <Text className="text-xs text-slate-500 mt-1">
+                Device registration and sync available
+              </Text>
+            )}
           </View>
-        )}
 
-        {/* Authentication Status */}
-        <View className="mb-4 p-3 bg-gray-50 rounded-lg">
-          <View className="flex-row justify-between items-center">
-            <Text className="text-sm font-pmedium text-slate-700">
-              {isAuthenticated ? '🟢 Authenticated' : '🔴 Not Authenticated'}
-            </Text>
+          {/* Navigation */}
+          <View className="flex-row space-x-2 mb-5">
             <TouchableOpacity
-              onPress={isAuthenticated ? handleLogout : () => setCurrentView(VIEWS.AUTH)}
-              className={`px-3 py-1 rounded ${isAuthenticated ? 'bg-red-100' : 'bg-blue-100'}`}
+              onPress={() => setCurrentView(VIEWS.DASHBOARD)}
+              className="flex-1 py-3 px-3 rounded-lg bg-blue-600"
             >
-              <Text className={`text-xs font-pmedium ${isAuthenticated ? 'text-red-700' : 'text-blue-700'}`}>
-                {isAuthenticated ? 'Logout' : 'Login'}
+              <Text className="text-center font-medium text-sm text-white">
+                Go to Dashboard
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setCurrentView(VIEWS.SETTINGS)}
+              className="flex-1 py-3 px-3 rounded-lg bg-gray-200"
+            >
+              <Text className="text-center font-medium text-sm text-gray-700">
+                Settings
               </Text>
             </TouchableOpacity>
           </View>
-          {isAuthenticated && (
-            <Text className="text-xs text-slate-500 mt-1">
-              Device registration and sync available
-            </Text>
-          )}
         </View>
 
-        {/* Navigation */}
-        <View className="flex-row space-x-2 mb-5">
-          <TouchableOpacity
-            onPress={() => setCurrentView(VIEWS.SETUP)}
-            className={`flex-1 py-3 px-3 rounded-lg ${currentView === VIEWS.SETUP
-              ? 'bg-blue-600'
-              : 'bg-gray-200'
-              }`}
-          >
-            <Text className={`text-center font-medium text-sm ${currentView === VIEWS.SETUP
-              ? 'text-white'
-              : 'text-gray-700'
-              }`}>
-              Setup
-            </Text>
-          </TouchableOpacity>
+        {/* Show notification setup interface on all platforms */}
+        <NotificationSetup />
+      </ScrollView>
 
-          <TouchableOpacity
+      {/* Bottom Navigation */}
+      <View className="bg-white border-t border-gray-200 px-6 py-3">
+        <View className="flex-row justify-around">
+          <TouchableOpacity 
             onPress={() => setCurrentView(VIEWS.DASHBOARD)}
-            className={`flex-1 py-3 px-3 rounded-lg ${currentView === VIEWS.DASHBOARD
-              ? 'bg-blue-600'
-              : 'bg-gray-200'
-              }`}
+            className="items-center py-2"
           >
-            <Text className={`text-center font-medium text-sm ${currentView === VIEWS.DASHBOARD
-              ? 'text-white'
-              : 'text-gray-700'
-              }`}>
-              Dashboard
-            </Text>
+            <Text className="text-2xl mb-1">🏠</Text>
+            <Text className="text-xs font-medium text-gray-500">Dashboard</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => setCurrentView(VIEWS.SETTINGS)}
-            className={`flex-1 py-3 px-3 rounded-lg ${currentView === VIEWS.SETTINGS
-              ? 'bg-blue-600'
-              : 'bg-gray-200'
-              }`}
+          <TouchableOpacity 
+            onPress={() => setCurrentView(VIEWS.NOTIFICATIONS)}
+            className="items-center py-2"
           >
-            <Text className={`text-center font-medium text-sm ${currentView === VIEWS.SETTINGS
-              ? 'text-white'
-              : 'text-gray-700'
-              }`}>
-              Settings
-            </Text>
+            <Text className="text-2xl mb-1">🔔</Text>
+            <Text className="text-xs font-medium text-gray-500">Notifications</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            onPress={() => setCurrentView(VIEWS.SETUP)}
+            className="items-center py-2"
+          >
+            <Text className="text-2xl mb-1">⚙️</Text>
+            <Text className="text-xs font-medium text-blue-600">Setup</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            onPress={() => setCurrentView(VIEWS.SETTINGS)}
+            className="items-center py-2"
+          >
+            <Text className="text-2xl mb-1">👤</Text>
+            <Text className="text-xs font-medium text-gray-500">Settings</Text>
           </TouchableOpacity>
         </View>
       </View>
-
-      {/* Show notification setup interface on all platforms */}
-      <NotificationSetup />
-    </ScrollView>
+    </View>
   );
 };
 
