@@ -309,6 +309,12 @@ export function useNotificationCapture(): [NotificationCaptureState, Notificatio
 
   const registerDevice = useCallback(async (): Promise<boolean> => {
     try {
+      // Check authentication first
+      if (!apiService.isAuthenticated()) {
+        setState(prev => ({ ...prev, error: 'User not authenticated' }));
+        return false;
+      }
+
       const deviceService = getDeviceService();
       const result = await deviceService.registerDevice();
       if (!result.success) {
@@ -317,6 +323,12 @@ export function useNotificationCapture(): [NotificationCaptureState, Notificatio
       return result.success;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Device registration failed';
+      // Don't log authentication errors as ERROR level
+      if (errorMessage.includes('not authenticated')) {
+        console.warn('Device registration skipped:', errorMessage);
+      } else {
+        console.error('Device registration error:', errorMessage);
+      }
       setState(prev => ({ ...prev, error: errorMessage }));
       return false;
     }

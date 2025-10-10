@@ -105,7 +105,7 @@ func (s *Server) getDevices(c *gin.Context) {
 		return
 	}
 
-	devices, err := s.repos.Device.GetByUserID(userID)
+	devices, err := s.deviceService.GetUserDevices(userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get devices"})
 		return
@@ -123,7 +123,18 @@ func (s *Server) registerDevice(c *gin.Context) {
 
 	var req auth.DeviceRegistrationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format: " + err.Error()})
+		return
+	}
+
+	// Validate required fields
+	if req.Name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Device name is required"})
+		return
+	}
+
+	if req.Platform == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Device platform is required"})
 		return
 	}
 
@@ -134,6 +145,44 @@ func (s *Server) registerDevice(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, response)
+}
+
+func (s *Server) updateDevice(c *gin.Context) {
+	userID, err := auth.GetUserID(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user context"})
+		return
+	}
+
+	deviceIDStr := c.Param("id")
+	deviceID, err := uuid.Parse(deviceIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid device ID"})
+		return
+	}
+
+	var req services.DeviceUpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format: " + err.Error()})
+		return
+	}
+
+	device, err := s.deviceService.UpdateDevice(userID, deviceID, &req)
+	if err != nil {
+		if err.Error() == "device not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Device not found"})
+		} else if err.Error() == "access denied: device does not belong to user" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Device updated successfully",
+		"device":  device,
+	})
 }
 
 func (s *Server) removeDevice(c *gin.Context) {
@@ -150,20 +199,15 @@ func (s *Server) removeDevice(c *gin.Context) {
 		return
 	}
 
-	// Verify device belongs to user
-	device, err := s.repos.Device.GetByID(deviceID)
+	err = s.deviceService.RemoveDevice(userID, deviceID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Device not found"})
-		return
-	}
-
-	if device.UserID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
-		return
-	}
-
-	if err := s.repos.Device.Delete(deviceID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete device"})
+		if err.Error() == "device not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Device not found"})
+		} else if err.Error() == "access denied: device does not belong to user" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete device"})
+		}
 		return
 	}
 

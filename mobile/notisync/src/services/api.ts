@@ -1,11 +1,12 @@
 import * as Network from 'expo-network';
 import * as Device from 'expo-device';
-import { CapturedNotification, SyncedNotification } from '../types/notification';
+import { Platform } from 'react-native';
+import { CapturedNotification } from '../types/notification';
 import { databaseService, AuthTokens } from './database';
 
 // Network-accessible backend URLs
-const API_BASE_URL = __DEV__ 
-  ? 'http://192.168.43.155:8080/api/v1' // Your actual local IP
+const API_BASE_URL = __DEV__
+  ? 'http://192.168.43.155:8080/api/v1' // Your actual local IP (updated from ipconfig)
   : 'https://api.notisync.com/api/v1';
 
 const FALLBACK_URLS = [
@@ -37,13 +38,14 @@ export interface RegisterRequest {
 
 export interface DeviceRegistration {
   name: string;
-  platform: 'ios' | 'android';
+  platform: 'mobile' | 'web' | 'desktop';
   deviceToken: string;
   model?: string;
   osVersion?: string;
 }
 
 export interface AuthState {
+  tokens: any | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   user?: any;
@@ -69,6 +71,7 @@ class ApiService {
   constructor() {
     this.baseUrl = API_BASE_URL;
     this.authState = {
+      tokens: null,
       isAuthenticated: false,
       isLoading: false,
     };
@@ -86,19 +89,19 @@ class ApiService {
 
     try {
       this.authState.isLoading = true;
-      
+
       // Initialize database
       await databaseService.initialize();
-      
+
       // Load device info
       await this.loadDeviceInfo();
-      
+
       // Test and set working backend URL
       await this.findWorkingBackendUrl();
-      
+
       // Load auth tokens
       await this.loadAuthTokens();
-      
+
       this.isInitialized = true;
       console.log('API service initialized successfully');
     } catch (error) {
@@ -113,7 +116,7 @@ class ApiService {
     try {
       this.deviceInfo = {
         name: Device.deviceName || 'Unknown Device',
-        platform: Device.osName?.toLowerCase() === 'ios' ? 'ios' : 'android',
+        platform: Platform.OS === 'web' ? 'web' : 'mobile', // Map to backend-compatible device types
         model: Device.modelName || 'Unknown Model',
         osVersion: Device.osVersion || 'Unknown Version',
         brand: Device.brand || 'Unknown Brand',
@@ -123,7 +126,7 @@ class ApiService {
       console.error('Failed to load device info:', error);
       this.deviceInfo = {
         name: 'Unknown Device',
-        platform: 'android',
+        platform: Platform.OS === 'web' ? 'web' : 'mobile',
         model: 'Unknown Model',
         osVersion: 'Unknown Version',
       };
@@ -132,15 +135,22 @@ class ApiService {
 
   private async findWorkingBackendUrl(): Promise<void> {
     const urlsToTest = [API_BASE_URL, ...FALLBACK_URLS];
-    
+
     for (const url of urlsToTest) {
       try {
         const healthUrl = url.replace('/api/v1', '/health');
+
+        // Create AbortController for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
         const response = await fetch(healthUrl, {
           method: 'GET',
-          timeout: 5000,
+          signal: controller.signal,
         });
-        
+
+        clearTimeout(timeoutId);
+
         if (response.ok) {
           this.baseUrl = url;
           console.log(`Using backend URL: ${url}`);
@@ -150,7 +160,7 @@ class ApiService {
         console.log(`Backend URL ${url} not accessible:`, error);
       }
     }
-    
+
     // If no URL works, use the default and let individual requests handle errors
     this.baseUrl = API_BASE_URL;
     console.warn('No backend URL accessible, using default:', this.baseUrl);
@@ -158,9 +168,18 @@ class ApiService {
 
   private async loadAuthTokens(): Promise<void> {
     try {
+      console.log('Loading auth tokens from database...');
       this.authTokens = await databaseService.getAuthTokens();
-      
+      console.log('Loaded tokens:', this.authTokens ? 'Found tokens' : 'No tokens found');
+
       if (this.authTokens) {
+        console.log('Token details:', {
+          hasAccessToken: !!this.authTokens.accessToken,
+          hasRefreshToken: !!this.authTokens.refreshToken,
+          expiresAt: new Date(this.authTokens.expiresAt).toISOString(),
+          isExpired: Date.now() >= this.authTokens.expiresAt
+        });
+
         // Validate token expiration
         if (Date.now() >= this.authTokens.expiresAt) {
           console.log('Auth tokens expired, attempting refresh...');
@@ -174,6 +193,8 @@ class ApiService {
           this.authState.isAuthenticated = true;
           console.log('Valid auth tokens loaded');
         }
+      } else {
+        console.log('No auth tokens found in database');
       }
     } catch (error) {
       console.error('Failed to load auth tokens:', error);
@@ -216,7 +237,7 @@ class ApiService {
       if (Date.now() >= this.authTokens.expiresAt) {
         await this.refreshAccessToken();
       }
-      
+
       if (this.authTokens) {
         headers.Authorization = `Bearer ${this.authTokens.accessToken}`;
       }
@@ -280,15 +301,21 @@ class ApiService {
       }
 
       const headers = await this.getAuthHeaders();
-      
+
+      // Create AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         ...options,
         headers: {
           ...headers,
           ...options.headers,
         },
-        timeout: 30000, // 30 second timeout
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       let data: any;
       try {
@@ -328,16 +355,16 @@ class ApiService {
       }
     } catch (error) {
       console.error('Request failed:', error);
-      
+
       // Retry logic for network errors
       if (retryCount < this.retryConfig.maxRetries && this.shouldRetry(error)) {
         const delay = Math.min(
           this.retryConfig.baseDelay * Math.pow(this.retryConfig.backoffFactor, retryCount),
           this.retryConfig.maxDelay
         );
-        
+
         console.log(`Retrying request in ${delay}ms (attempt ${retryCount + 1}/${this.retryConfig.maxRetries})`);
-        
+
         await new Promise(resolve => setTimeout(resolve, delay));
         return this.makeRequest(endpoint, options, retryCount + 1);
       }
@@ -380,34 +407,28 @@ class ApiService {
         };
 
         await this.saveAuthTokens(tokens);
-        
+
         // Store user info if provided
         if (response.data.user) {
           this.authState.user = response.data.user;
           await databaseService.saveUser({
             id: response.data.user.id,
             email: response.data.user.email,
-            firstName: response.data.user.firstName || response.data.user.first_name,
-            lastName: response.data.user.lastName || response.data.user.last_name,
+            firstName: '', // Backend doesn't provide first name
+            lastName: '', // Backend doesn't provide last name
             createdAt: Date.now(),
             updatedAt: Date.now(),
           });
         }
 
-        // Auto-register device after successful login
-        try {
-          await this.autoRegisterDevice();
-        } catch (deviceError) {
-          console.warn('Device registration failed:', deviceError);
-          // Don't fail login if device registration fails
-        }
+        // Device registration will be handled by the app after successful login
 
-        return { 
-          success: true, 
-          data: { 
-            ...tokens, 
-            user: response.data.user 
-          } 
+        return {
+          success: true,
+          data: {
+            ...tokens,
+            user: response.data.user
+          }
         };
       }
 
@@ -435,8 +456,6 @@ class ApiService {
         body: JSON.stringify({
           email: userData.email,
           password: userData.password,
-          first_name: userData.firstName,
-          last_name: userData.lastName,
         }),
       });
 
@@ -447,14 +466,19 @@ class ApiService {
             email: userData.email,
             password: userData.password,
           });
-          
-          if (loginResponse.success) {
+
+          if (loginResponse.success && loginResponse.data) {
             return {
               success: true,
               data: {
-                ...response.data,
+                ...(response.data && typeof response.data === 'object' ? response.data : {}),
                 autoLogin: true,
-                tokens: loginResponse.data,
+                tokens: {
+                  accessToken: loginResponse.data.accessToken,
+                  refreshToken: loginResponse.data.refreshToken,
+                  expiresAt: loginResponse.data.expiresAt,
+                  user: loginResponse.data.user,
+                },
               },
             };
           }
@@ -483,7 +507,7 @@ class ApiService {
   async logout(): Promise<ApiResponse<void>> {
     try {
       this.authState.isLoading = true;
-      
+
       // Attempt to notify server of logout
       try {
         await this.makeRequest('/auth/logout', { method: 'POST' });
@@ -508,50 +532,82 @@ class ApiService {
     }
   }
 
+  // Debug method to clear all stored data
+  async clearAllStoredData(): Promise<void> {
+    try {
+      console.log('Starting to clear all stored data...');
+
+      // Clear auth tokens
+      await this.clearAuthTokens();
+      console.log('Auth tokens cleared');
+
+      // Clear user data
+      await databaseService.clearUser();
+      console.log('User data cleared');
+
+      // Clear all database data
+      await databaseService.clearAllData();
+      console.log('Database cleared');
+
+      // Reset auth state
+      this.authState.isAuthenticated = false;
+      this.authState.tokens = null;
+      this.authState.user = null;
+      this.authState.lastAuthAttempt = undefined;
+      this.authState.error = undefined;
+      console.log('Auth state reset');
+
+      // Force reload auth state
+      await this.loadAuthTokens();
+      console.log('Auth tokens reloaded (should be empty)');
+
+      console.log('All stored data cleared - ready for fresh login');
+      console.log('Current auth state:', {
+        isAuthenticated: this.authState.isAuthenticated,
+        hasTokens: !!this.authState.tokens,
+        hasUser: !!this.authState.user
+      });
+    } catch (error) {
+      console.error('Failed to clear stored data:', error);
+    }
+  }
+
   async registerDevice(deviceInfo: DeviceRegistration): Promise<ApiResponse<any>> {
+    console.log('API registerDevice called with:', deviceInfo);
+    console.log('Authentication check:', {
+      isAuthenticated: this.isAuthenticated(),
+      hasTokens: !!this.authTokens,
+      tokenExpiry: this.authTokens ? new Date(this.authTokens.expiresAt).toISOString() : 'no tokens'
+    });
+
     if (!this.isAuthenticated()) {
+      console.log('Device registration failed: not authenticated');
       return {
         success: false,
         error: 'Must be authenticated to register device',
       };
     }
 
-    return this.makeRequest('/auth/devices', {
+    const requestBody = {
+      name: deviceInfo.name,
+      platform: deviceInfo.platform,
+      token: deviceInfo.deviceToken || null,
+      model: deviceInfo.model || null,
+      os_version: deviceInfo.osVersion || null,
+    };
+
+    console.log('Sending device registration request:', requestBody);
+
+    const result = await this.makeRequest('/devices', {
       method: 'POST',
-      body: JSON.stringify({
-        name: deviceInfo.name,
-        platform: deviceInfo.platform,
-        device_token: deviceInfo.deviceToken,
-        model: deviceInfo.model,
-        os_version: deviceInfo.osVersion,
-        brand: this.deviceInfo?.brand,
-        manufacturer: this.deviceInfo?.manufacturer,
-      }),
+      body: JSON.stringify(requestBody),
     });
+
+    console.log('Device registration response:', result);
+    return result;
   }
 
-  private async autoRegisterDevice(): Promise<void> {
-    if (!this.deviceInfo) return;
 
-    try {
-      const deviceRegistration: DeviceRegistration = {
-        name: this.deviceInfo.name,
-        platform: this.deviceInfo.platform,
-        deviceToken: '', // Will be set when push notifications are configured
-        model: this.deviceInfo.model,
-        osVersion: this.deviceInfo.osVersion,
-      };
-
-      const response = await this.registerDevice(deviceRegistration);
-      if (response.success) {
-        console.log('Device registered successfully');
-      } else {
-        console.warn('Device registration failed:', response.error);
-      }
-    } catch (error) {
-      console.warn('Auto device registration failed:', error);
-    }
-  }
 
   // Notification methods
   async syncNotification(notification: CapturedNotification): Promise<ApiResponse<any>> {
@@ -593,7 +649,7 @@ class ApiService {
   }
 
   async updateNotificationStatus(
-    notificationId: string, 
+    notificationId: string,
     action: 'read' | 'dismiss' | 'click'
   ): Promise<ApiResponse<any>> {
     return this.makeRequest(`/notifications/${notificationId}`, {
@@ -602,11 +658,35 @@ class ApiService {
     });
   }
 
+  // Device management methods
+  async getDevices(): Promise<ApiResponse<{ devices: any[] }>> {
+    return this.makeRequest('/devices');
+  }
+
+  async removeDevice(deviceId: string): Promise<ApiResponse<any>> {
+    return this.makeRequest(`/devices/${deviceId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async updateDevice(deviceId: string, updates: Partial<DeviceRegistration>): Promise<ApiResponse<any>> {
+    return this.makeRequest(`/devices/${deviceId}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        name: updates.name,
+        platform: updates.platform,
+        token: updates.deviceToken,
+        model: updates.model,
+        os_version: updates.osVersion,
+      }),
+    });
+  }
+
   // Utility methods
   isAuthenticated(): boolean {
-    return this.authTokens !== null && 
-           Date.now() < this.authTokens.expiresAt &&
-           this.authState.isAuthenticated;
+    return this.authTokens !== null &&
+      Date.now() < this.authTokens.expiresAt &&
+      this.authState.isAuthenticated;
   }
 
   getAccessToken(): string | null {
@@ -623,9 +703,15 @@ class ApiService {
 
   async testConnection(): Promise<boolean> {
     try {
+      // Create AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
       const response = await fetch(`${this.baseUrl.replace('/api/v1', '')}/health`, {
-        timeout: 5000,
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
       return response.ok;
     } catch {
       return false;

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Alert, Platform } from 'react-native';
 import { NotificationList } from './NotificationList';
 import { NotificationDetail } from './NotificationDetail';
+import { NotificationCaptureStatus } from './NotificationCaptureStatus';
 import { useNotificationDisplay } from '../hooks/useNotificationDisplay';
 import { SyncedNotification } from '../types/notification';
 
@@ -77,6 +78,16 @@ export function NotificationDashboard() {
                 </Text>
               )}
             </View>
+            {/* Capture Status */}
+            <View className="flex-row items-center mt-1">
+              <View className="w-2 h-2 rounded-full bg-green-500 mr-2" />
+              <Text className="text-xs text-green-700 font-medium">
+                📱 Capturing notifications
+              </Text>
+              <Text className="text-xs text-gray-500 ml-2">
+                • {Platform.OS === 'android' ? 'Android Service Active' : 'iOS Listener Active'}
+              </Text>
+            </View>
           </View>
 
           <View className="flex-row items-center space-x-2">
@@ -114,6 +125,9 @@ export function NotificationDashboard() {
           </View>
         </View>
       </View>
+
+      {/* Notification Capture Status */}
+      <NotificationCaptureStatus />
 
       {/* Error Display */}
       {state.error && (
@@ -176,9 +190,11 @@ function QuickStats({ notifications }: QuickStatsProps) {
     personal: notifications.filter(n => n.category === 'Personal').length,
     junk: notifications.filter(n => n.category === 'Junk').length,
     synced: notifications.filter(n => n.synced).length,
+    local: notifications.filter(n => !n.synced).length,
   };
 
   const syncRate = stats.total > 0 ? (stats.synced / stats.total * 100).toFixed(1) : '0';
+  const storageInfo = `${stats.local} Local, ${stats.synced} Cloud`;
 
   return (
     <View>
@@ -187,8 +203,8 @@ function QuickStats({ notifications }: QuickStatsProps) {
         <StatItem label="Unread" value={stats.unread} color="text-blue-600" />
         <StatItem label="Work" value={stats.work} color="text-blue-600" />
         <StatItem label="Personal" value={stats.personal} color="text-green-600" />
-        <StatItem label="Junk" value={stats.junk} color="text-gray-600" />
-        <StatItem label="Sync Rate" value={`${syncRate}%`} color="text-purple-600" />
+        <StatItem label="Storage" value={storageInfo} color="text-purple-600" />
+        <StatItem label="Sync Rate" value={`${syncRate}%`} color="text-orange-600" />
       </View>
     </View>
   );

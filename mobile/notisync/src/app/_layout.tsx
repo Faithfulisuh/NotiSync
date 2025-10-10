@@ -5,6 +5,23 @@ import { useFonts } from "expo-font";
 import { Suspense, useEffect } from "react";
 import { GestureHandlerWrapper } from "../components/GestureHandlerWrapper";
 
+// Global error handler for unhandled promise rejections
+const originalHandler = global.ErrorUtils?.getGlobalHandler?.();
+global.ErrorUtils?.setGlobalHandler?.((error, isFatal) => {
+  // Suppress keep awake errors as they're non-critical
+  if (error?.message?.includes?.('Unable to activate keep awake')) {
+    console.warn('Keep awake error suppressed:', error.message);
+    return;
+  }
+  
+  // Handle other errors normally
+  if (originalHandler) {
+    originalHandler(error, isFatal);
+  } else {
+    console.error('Unhandled error:', error);
+  }
+});
+
 // RootLayout component serves as the main layout for the application
 const RootLayout = () => {
   const [fontsLoaded, error] = useFonts({

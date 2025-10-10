@@ -1,9 +1,12 @@
 package api
 
 import (
+	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/notisync/backend/internal/auth"
 	"github.com/notisync/backend/internal/config"
 	"github.com/notisync/backend/internal/redis"
@@ -18,6 +21,7 @@ type Server struct {
 	repos               *repository.InterfaceRepositories
 	redisService        *redis.Service
 	authService         *auth.Service
+	deviceService       *services.DeviceService
 	notificationService *services.NotificationService
 	historyService      *services.NotificationHistoryService
 	digestService       *services.DailyDigestService
@@ -33,6 +37,7 @@ func NewServer(cfg *config.Config, repos *repository.InterfaceRepositories, redi
 	
 	// Initialize services
 	authService := auth.NewService(repos, &cfg.JWT)
+	deviceService := services.NewDeviceService(repos)
 	notificationService := services.NewNotificationService(repos, redisService)
 	historyService := services.NewNotificationHistoryService(repos.NotificationHistory, redisService)
 	digestService := services.NewDailyDigestService(repos, redisService)
@@ -44,6 +49,7 @@ func NewServer(cfg *config.Config, repos *repository.InterfaceRepositories, redi
 		repos:               repos,
 		redisService:        redisService,
 		authService:         authService,
+		deviceService:       deviceService,
 		notificationService: notificationService,
 		historyService:      historyService,
 		digestService:       digestService,
@@ -61,6 +67,9 @@ func NewServer(cfg *config.Config, repos *repository.InterfaceRepositories, redi
 }
 
 func (s *Server) setupRoutes() {
+	// Add CORS middleware
+	s.router.Use(s.corsMiddleware())
+	
 	// Health check
 	s.router.GET("/health", s.healthCheck)
 	
@@ -78,10 +87,12 @@ func (s *Server) setupRoutes() {
 		// Protected routes (require authentication)
 		protected := v1.Group("/")
 		protected.Use(s.authService.AuthMiddleware())
+		protected.Use(s.deviceLastSeenMiddleware())
 		{
 			// Device management
 			protected.GET("/devices", s.getDevices)
 			protected.POST("/devices", s.registerDevice)
+			protected.PUT("/devices/:id", s.updateDevice)
 			protected.DELETE("/devices/:id", s.removeDevice)
 
 			// Notifications
@@ -133,4 +144,62 @@ func (s *Server) setupRoutes() {
 
 func (s *Server) Start(addr string) error {
 	return s.router.Run(addr)
+}
+
+// deviceLastSeenMiddleware updates device last seen timestamp
+func (s *Server) deviceLastSeenMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Try to get device ID from context (set by auth middleware)
+		if deviceID, exists := c.Get("device_id"); exists {
+			if id, ok := deviceID.(uuid.UUID); ok && id != uuid.Nil {
+				// Update last seen in background (don't block request)
+				go func() {
+					if err := s.deviceService.UpdateDeviceLastSeen(id); err != nil {
+						// Log error but don't fail the request
+						fmt.Printf("Failed to update device last seen: %v\n", err)
+					}
+				}()
+			}
+		}
+		c.Next()
+	}
+}
+
+// corsMiddleware adds CORS headers to allow cross-origin requests
+func (s *Server) corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		origin := c.Request.Header.Get("Origin")
+		
+		// Allow all origins in development, specific origins in production
+		if s.config.Server.Environment == "development" {
+			c.Header("Access-Control-Allow-Origin", "*")
+		} else {
+			// In production, you might want to restrict to specific origins
+			allowedOrigins := []string{
+				"http://localhost:3000",
+				"http://localhost:19006",
+				"https://notisync.com",
+			}
+			
+			for _, allowedOrigin := range allowedOrigins {
+				if origin == allowedOrigin {
+					c.Header("Access-Control-Allow-Origin", origin)
+					break
+				}
+			}
+		}
+		
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+		c.Header("Access-Control-Allow-Credentials", "true")
+		c.Header("Access-Control-Max-Age", "86400")
+
+		// Handle preflight requests
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+
+		c.Next()
+	}
 }

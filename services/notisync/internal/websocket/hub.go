@@ -67,9 +67,11 @@ func (h *Hub) Start() {
 	h.wg.Add(1)
 	go h.run()
 	
-	// Start Redis pub/sub listener
-	h.wg.Add(1)
-	go h.listenToRedis()
+	// Start Redis pub/sub listener only if Redis is available
+	if h.redisService != nil {
+		h.wg.Add(1)
+		go h.listenToRedis()
+	}
 }
 
 // Stop stops the hub gracefully
@@ -218,6 +220,12 @@ func (h *Hub) cleanupStaleConnections() {
 // listenToRedis listens to Redis pub/sub messages and broadcasts them to WebSocket connections
 func (h *Hub) listenToRedis() {
 	defer h.wg.Done()
+
+	// Check if Redis service is available
+	if h.redisService == nil {
+		log.Println("⚠️  Redis not available, skipping pub/sub listener")
+		return
+	}
 
 	// Subscribe to all user channels using pattern matching
 	pattern := "user:*"

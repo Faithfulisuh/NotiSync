@@ -76,12 +76,14 @@ class DatabaseService {
   async getAuthTokens(): Promise<AuthTokens | null> {
     if (!this.db) throw new Error('Database not initialized');
 
+    console.log('Getting auth tokens from database...');
     const result = await this.db.getFirstAsync<{
       access_token: string;
       refresh_token: string;
       expires_at: number;
     }>('SELECT access_token, refresh_token, expires_at FROM auth_tokens ORDER BY created_at DESC LIMIT 1');
 
+    console.log('Database query result:', result ? 'Found tokens' : 'No tokens');
     if (!result) return null;
 
     return {
@@ -93,7 +95,9 @@ class DatabaseService {
 
   async clearAuthTokens(): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
+    console.log('Clearing auth tokens from database...');
     await this.db.runAsync('DELETE FROM auth_tokens');
+    console.log('Auth tokens cleared from database');
   }
 
   // User methods

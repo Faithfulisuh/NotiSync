@@ -18,7 +18,7 @@ if (Platform.OS !== 'web') {
 export interface DeviceInfo {
   id: string;
   name: string;
-  platform: 'ios' | 'android';
+  platform: 'mobile' | 'web' | 'desktop';
   model: string;
   osVersion: string;
   appVersion: string;
@@ -55,7 +55,7 @@ class DeviceRegistrationService {
     }
   }
 
-  private async saveDeviceInfo(): Promise<void> {
+  async saveDeviceInfo(): Promise<void> {
     if (this.deviceInfo) {
       try {
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(this.deviceInfo));
@@ -80,14 +80,14 @@ class DeviceRegistrationService {
         }
       } else {
         // For web, generate a mock token
-        pushToken = `web_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        pushToken = `web_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
       }
 
       // Generate device info
       const deviceInfo: DeviceInfo = {
         id: await this.generateDeviceId(),
         name: await this.generateDeviceName(),
-        platform: Platform.OS === 'web' ? 'android' : (Platform.OS as 'ios' | 'android'), // Default web to android for API compatibility
+        platform: Platform.OS === 'web' ? 'web' : 'mobile', // Map to backend-compatible device types
         model: this.getDeviceModel(),
         osVersion: this.getOSVersion(),
         appVersion: '1.0.0', // This should come from app.json or package.json
@@ -97,7 +97,7 @@ class DeviceRegistrationService {
 
       this.deviceInfo = deviceInfo;
       await this.saveDeviceInfo();
-      
+
       return deviceInfo;
     } catch (error) {
       console.error('Failed to generate device info:', error);
@@ -117,14 +117,14 @@ class DeviceRegistrationService {
     }
 
     // Generate new device ID
-    const deviceId = `${Platform.OS}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+    const deviceId = `${Platform.OS}_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+
     try {
       await AsyncStorage.setItem('device_id', deviceId);
     } catch (error) {
       console.warn('Failed to save device ID:', error);
     }
-    
+
     return deviceId;
   }
 
@@ -145,7 +145,7 @@ class DeviceRegistrationService {
   private async generateDeviceName(): Promise<string> {
     let platform: string;
     let model: string;
-    
+
     if (Platform.OS === 'web') {
       platform = 'Web Browser';
       model = this.getDeviceModel();
@@ -153,7 +153,7 @@ class DeviceRegistrationService {
       platform = Platform.OS === 'ios' ? 'iPhone' : 'Android';
       model = Device.modelName || Device.deviceName || 'Device';
     }
-    
+
     // Try to get user's custom name from storage
     try {
       const customName = await AsyncStorage.getItem('device_custom_name');
@@ -163,13 +163,16 @@ class DeviceRegistrationService {
     } catch (error) {
       console.warn('Failed to get custom device name:', error);
     }
-    
+
     return `${model} (${platform})`;
   }
 
-  async registerDevice(): Promise<{ success: boolean; error?: string }> {
+  async registerDevice(): Promise<{ success: boolean; error?: string; device?: any }> {
     try {
+      console.log('Starting device registration...');
+
       if (!this.deviceInfo) {
+        console.log('No device info found, generating...');
         await this.generateDeviceInfo();
       }
 
@@ -181,23 +184,54 @@ class DeviceRegistrationService {
         throw new Error('User not authenticated');
       }
 
-      const result = await apiService.registerDevice({
+      const deviceRegistrationData = {
         name: this.deviceInfo.name,
         platform: this.deviceInfo.platform,
         deviceToken: this.deviceInfo.pushToken || this.deviceInfo.id,
         model: this.deviceInfo.model,
         osVersion: this.deviceInfo.osVersion,
+      };
+
+      console.log('Registering device with info:', {
+        name: this.deviceInfo.name,
+        platform: this.deviceInfo.platform,
+        model: this.deviceInfo.model,
+        osVersion: this.deviceInfo.osVersion,
+        hasPushToken: !!this.deviceInfo.pushToken,
+        deviceToken: deviceRegistrationData.deviceToken
       });
+
+      console.log('API service auth status:', {
+        isAuthenticated: apiService.isAuthenticated(),
+        hasAccessToken: !!apiService.getAccessToken(),
+        authState: apiService.getAuthState()
+      });
+
+      const result = await apiService.registerDevice(deviceRegistrationData);
 
       if (result.success) {
         this.deviceInfo.isRegistered = true;
         this.deviceInfo.registeredAt = Date.now();
         await this.saveDeviceInfo();
-        
-        console.log('Device registered successfully');
-        return { success: true };
+
+        console.log('Device registered successfully:', result.data);
+        return {
+          success: true,
+          device: result.data?.device || result.data
+        };
       } else {
         console.error('Device registration failed:', result.error);
+
+        // If the error is "user not found", it means the token is invalid
+        if (result.error?.includes('user not found')) {
+          console.log('User not found error detected during device registration');
+          // The API service should have already cleared the tokens
+          // Mark device as not registered
+          this.deviceInfo.isRegistered = false;
+          this.deviceInfo.registeredAt = undefined;
+          await this.saveDeviceInfo();
+        }
+
         return { success: false, error: result.error };
       }
     } catch (error) {
@@ -210,7 +244,7 @@ class DeviceRegistrationService {
   async updateDeviceName(name: string): Promise<void> {
     try {
       await AsyncStorage.setItem('device_custom_name', name);
-      
+
       if (this.deviceInfo) {
         this.deviceInfo.name = name;
         await this.saveDeviceInfo();
@@ -234,7 +268,7 @@ class DeviceRegistrationService {
       if (this.deviceInfo && token !== this.deviceInfo.pushToken) {
         this.deviceInfo.pushToken = token;
         await this.saveDeviceInfo();
-        
+
         // Re-register device with new token if already registered
         if (this.deviceInfo.isRegistered && apiService.isAuthenticated()) {
           await this.registerDevice();
@@ -256,19 +290,169 @@ class DeviceRegistrationService {
     return this.deviceInfo?.isRegistered || false;
   }
 
-  async unregisterDevice(): Promise<void> {
-    if (this.deviceInfo) {
-      this.deviceInfo.isRegistered = false;
-      this.deviceInfo.registeredAt = undefined;
-      await this.saveDeviceInfo();
+  async unregisterDevice(): Promise<{ success: boolean; error?: string }> {
+    try {
+      if (apiService.isAuthenticated()) {
+        // Try to notify the server about device removal
+        try {
+          const devices = await apiService.getDevices();
+          if (devices.success && devices.data?.devices) {
+            const currentDevice = devices.data.devices.find((d: any) =>
+              d.device_name === this.deviceInfo?.name
+            );
+
+            if (currentDevice) {
+              await apiService.removeDevice(currentDevice.id);
+            }
+          }
+        } catch (error) {
+          console.warn('Failed to notify server about device removal:', error);
+        }
+      }
+
+      if (this.deviceInfo) {
+        this.deviceInfo.isRegistered = false;
+        this.deviceInfo.registeredAt = undefined;
+        await this.saveDeviceInfo();
+      }
+
+      return { success: true };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Device unregistration error:', errorMessage);
+      return { success: false, error: errorMessage };
     }
   }
 
+  async checkRegistrationStatus(): Promise<{
+    isRegistered: boolean;
+    needsReregistration: boolean;
+    serverDevice?: any;
+    error?: string;
+  }> {
+    try {
+      if (!apiService.isAuthenticated()) {
+        return {
+          isRegistered: false,
+          needsReregistration: false,
+          error: 'Not authenticated'
+        };
+      }
+
+      if (!this.deviceInfo) {
+        return {
+          isRegistered: false,
+          needsReregistration: true,
+          error: 'No local device info'
+        };
+      }
+
+      // Check with server
+      const devicesResponse = await apiService.getDevices();
+      if (!devicesResponse.success) {
+        return {
+          isRegistered: this.deviceInfo.isRegistered,
+          needsReregistration: false,
+          error: devicesResponse.error
+        };
+      }
+
+      const serverDevices = devicesResponse.data?.devices || [];
+      const matchingDevice = serverDevices.find((d: any) =>
+        d.device_name === this.deviceInfo?.name
+      );
+
+      if (matchingDevice) {
+        // Device exists on server
+        if (!this.deviceInfo.isRegistered) {
+          // Local state is out of sync
+          this.deviceInfo.isRegistered = true;
+          this.deviceInfo.registeredAt = Date.now();
+          await this.saveDeviceInfo();
+        }
+
+        return {
+          isRegistered: true,
+          needsReregistration: false,
+          serverDevice: matchingDevice
+        };
+      } else {
+        // Device doesn't exist on server
+        if (this.deviceInfo.isRegistered) {
+          // Local state is out of sync
+          this.deviceInfo.isRegistered = false;
+          this.deviceInfo.registeredAt = undefined;
+          await this.saveDeviceInfo();
+        }
+
+        return {
+          isRegistered: false,
+          needsReregistration: true
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Registration status check error:', errorMessage);
+      return {
+        isRegistered: this.deviceInfo?.isRegistered || false,
+        needsReregistration: false,
+        error: errorMessage
+      };
+    }
+  }
   async clearDeviceInfo(): Promise<void> {
     this.deviceInfo = null;
     await AsyncStorage.removeItem(STORAGE_KEY);
     await AsyncStorage.removeItem('device_id');
     await AsyncStorage.removeItem('device_custom_name');
+  }
+
+  async ensureDeviceRegistration(): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('Ensuring device registration...');
+
+      // Check current registration status
+      const status = await this.checkRegistrationStatus();
+
+      if (status.isRegistered && !status.needsReregistration) {
+        console.log('Device already registered');
+        return { success: true };
+      }
+
+      if (status.needsReregistration || !status.isRegistered) {
+        console.log('Device needs registration/re-registration');
+        return await this.registerDevice();
+      }
+
+      return { success: true };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Ensure device registration error:', errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  async forceReregister(): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('Force re-registering device...');
+
+      // Clear local registration state
+      if (this.deviceInfo) {
+        this.deviceInfo.isRegistered = false;
+        this.deviceInfo.registeredAt = undefined;
+        await this.saveDeviceInfo();
+      }
+
+      // Regenerate device info to get fresh tokens
+      await this.generateDeviceInfo();
+
+      // Register device
+      return await this.registerDevice();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Force re-register error:', errorMessage);
+      return { success: false, error: errorMessage };
+    }
   }
 
   // Utility methods for device capabilities
@@ -302,7 +486,7 @@ class DeviceRegistrationService {
 
     const permissions = await Notifications.getPermissionsAsync();
     const deviceInfo = this.getDeviceInfo();
-    
+
     return {
       permissionsGranted: permissions.status === 'granted',
       pushTokenAvailable: !!deviceInfo?.pushToken,

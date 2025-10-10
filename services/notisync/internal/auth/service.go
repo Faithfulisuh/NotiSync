@@ -36,9 +36,11 @@ type RegisterRequest struct {
 }
 
 type DeviceRegistrationRequest struct {
-	DeviceName string           `json:"device_name" binding:"required"`
-	DeviceType types.DeviceType `json:"device_type" binding:"required"`
-	PushToken  *string          `json:"push_token,omitempty"`
+	Name      string           `json:"name" binding:"required"`
+	Platform  types.DeviceType `json:"platform" binding:"required"`
+	Token     *string          `json:"token,omitempty"`
+	Model     *string          `json:"model,omitempty"`
+	OSVersion *string          `json:"os_version,omitempty"`
 }
 
 type AuthResponse struct {
@@ -133,16 +135,48 @@ func (s *Service) RegisterDevice(userID uuid.UUID, req *DeviceRegistrationReques
 		return nil, fmt.Errorf("user not found: %w", err)
 	}
 
-	// Create device
-	device := &types.Device{
-		UserID:     userID,
-		DeviceName: req.DeviceName,
-		DeviceType: req.DeviceType,
-		PushToken:  req.PushToken,
+	// Validate device type
+	if !req.Platform.IsValid() {
+		return nil, fmt.Errorf("invalid device platform: %s", req.Platform)
 	}
 
-	if err := s.repos.Device.Create(device); err != nil {
-		return nil, fmt.Errorf("failed to create device: %w", err)
+	// Check if device with same name already exists for this user
+	existingDevices, err := s.repos.Device.GetByUserID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check existing devices: %w", err)
+	}
+
+	var device *types.Device
+
+	for _, existingDevice := range existingDevices {
+		if existingDevice.DeviceName == req.Name {
+			// Update existing device instead of creating a new one
+			existingDevice.DeviceType = req.Platform
+			existingDevice.PushToken = req.Token
+			existingDevice.LastSeen = time.Now()
+
+			if err := s.repos.Device.Update(existingDevice); err != nil {
+				return nil, fmt.Errorf("failed to update existing device: %w", err)
+			}
+
+			device = existingDevice
+			break
+		}
+	}
+
+	// Create new device if none found
+	if device == nil {
+		device = &types.Device{
+			UserID:     userID,
+			DeviceName: req.Name,
+			DeviceType: req.Platform,
+			PushToken:  req.Token,
+			LastSeen:   time.Now(),
+		}
+
+		if err := s.repos.Device.Create(device); err != nil {
+			return nil, fmt.Errorf("failed to create device: %w", err)
+		}
 	}
 
 	// Generate tokens with device ID

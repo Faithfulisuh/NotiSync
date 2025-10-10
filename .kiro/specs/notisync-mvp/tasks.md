@@ -231,7 +231,16 @@
   - Write unit tests for authentication flows
   - _Requirements: 6.1, 6.2, 6.3, 6.4_
 
-- [ ] 16.7. Implement Expo push notifications
+- [ ] 16.7. **URGENT: Fix mobile app critical issues**
+
+  - **Fix AsyncStorage display issue** - Replace "AsyncStorage" text with actual storage info on home screen quick stats
+  - **Fix dashboard blinking issue** - Resolve UI flickering/blinking on dashboard screen
+  - **Add notification capture logging** - Add visible logging/indicators to show when notifications are being captured
+  - **Fix network connectivity** - Ensure mobile app can connect to backend server despite different IP addresses
+  - **Add notification capture status indicator** - Show real-time status of notification capture service
+  - _Requirements: 1.1, 1.4, 7.1_
+
+- [ ] 16.8. Implement Expo push notifications
 
   - Set up Expo push notification configuration
   - Implement push notification token registration

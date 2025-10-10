@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { SyncedNotification } from '../types/notification';
 import { apiService } from '../services/api';
@@ -45,6 +45,17 @@ export function useNotificationDisplay(): [NotificationDisplayState, Notificatio
   const [hasMore, setHasMore] = useState(true);
   const [currentOffset, setCurrentOffset] = useState(0);
   const NOTIFICATIONS_PER_PAGE = 50;
+  
+  // Debounce state updates to prevent blinking
+  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const debouncedSetState = useCallback((updater: (prev: NotificationDisplayState) => NotificationDisplayState) => {
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+    }
+    updateTimeoutRef.current = setTimeout(() => {
+      setState(updater);
+    }, 50); // 50ms debounce
+  }, []);
 
   // Load notifications from local storage and server
   const loadNotifications = useCallback(async (offset = 0, append = false) => {
@@ -331,12 +342,20 @@ export function useNotificationDisplay(): [NotificationDisplayState, Notificatio
 
   // Initialize
   useEffect(() => {
-    loadNotifications(0, false);
+    let mounted = true;
+    
+    const initialize = async () => {
+      if (mounted) {
+        await loadNotifications(0, false);
 
-    // Set up WebSocket
-    if (apiService.isAuthenticated()) {
-      webSocketService.connect();
-    }
+        // Set up WebSocket
+        if (apiService.isAuthenticated()) {
+          webSocketService.connect();
+        }
+      }
+    };
+
+    initialize();
 
     // Set up event listeners
     webSocketService.on('*', handleWebSocketMessage);
@@ -346,11 +365,12 @@ export function useNotificationDisplay(): [NotificationDisplayState, Notificatio
     const subscription = AppState.addEventListener('change', handleAppStateChange);
 
     return () => {
+      mounted = false;
       webSocketService.off('*', handleWebSocketMessage);
       webSocketService.offConnection(handleConnectionChange);
       subscription?.remove();
     };
-  }, [handleWebSocketMessage, handleConnectionChange, handleAppStateChange, loadNotifications]);
+  }, []); // Remove dependencies to prevent re-initialization
 
   // Actions
   const actions: NotificationDisplayActions = {

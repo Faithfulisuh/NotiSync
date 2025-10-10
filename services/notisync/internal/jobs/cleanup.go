@@ -9,10 +9,10 @@ import (
 )
 
 type CleanupJob struct {
-	repos *repository.Repositories
+	repos *repository.InterfaceRepositories
 }
 
-func NewCleanupJob(repos *repository.Repositories) *CleanupJob {
+func NewCleanupJob(repos *repository.InterfaceRepositories) *CleanupJob {
 	return &CleanupJob{repos: repos}
 }
 
@@ -37,7 +37,7 @@ func (j *CleanupJob) Start(ctx context.Context) {
 func (j *CleanupJob) cleanupExpiredNotifications() {
 	log.Println("Running cleanup of expired notifications")
 
-	deletedCount, err := j.repos.Notification.DeleteExpired()
+	deletedCount, err := j.repos.Notification.CleanupExpired()
 	if err != nil {
 		log.Printf("Error cleaning up expired notifications: %v", err)
 		return

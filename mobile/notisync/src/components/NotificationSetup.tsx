@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Alert, Platform } from 'react-native';
 import { useNotificationCapture } from '../hooks/useNotificationCapture';
 import { Storage } from '../utils/storage';
+import { apiService } from '../services/api';
 
 export const NotificationSetup: React.FC = () => {
   const [state, actions] = useNotificationCapture();
@@ -37,10 +38,12 @@ export const NotificationSetup: React.FC = () => {
           'NotiSync needs notification access to capture and sync your notifications. Please grant permissions in your device settings.',
           [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Open Settings', onPress: () => {
-              // This would ideally open device settings
-              Alert.alert('Manual Setup', 'Please go to Settings > Apps > NotiSync > Permissions and enable Notification Access.');
-            }}
+            {
+              text: 'Open Settings', onPress: () => {
+                // This would ideally open device settings
+                Alert.alert('Manual Setup', 'Please go to Settings > Apps > NotiSync > Permissions and enable Notification Access.');
+              }
+            }
           ]
         );
       }
@@ -67,6 +70,24 @@ export const NotificationSetup: React.FC = () => {
   };
 
   const handleRegisterDevice = async () => {
+    // Check if user is authenticated first
+    if (!apiService.isAuthenticated()) {
+      Alert.alert(
+        'Authentication Required',
+        'Please log in to your account first to register this device with the server.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Go to Login', onPress: () => {
+              // Navigate to login screen - you might want to implement navigation here
+              Alert.alert('Login Required', 'Please use the login screen to authenticate first.');
+            }
+          }
+        ]
+      );
+      return;
+    }
+
     const success = await actions.registerDevice();
     if (success) {
       Alert.alert(

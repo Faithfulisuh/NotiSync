@@ -39,7 +39,7 @@ class WebSocketService {
   constructor() {
     this.config = {
       url: __DEV__ 
-        ? 'ws://localhost:8080/ws' 
+        ? 'ws://192.168.43.155:8080/ws' 
         : 'wss://api.notisync.com/ws',
       reconnectInterval: 5000, // 5 seconds
       maxReconnectAttempts: 10,

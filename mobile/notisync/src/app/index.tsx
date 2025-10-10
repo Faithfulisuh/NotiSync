@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Platform, ScrollView, View, Text, TouchableOpacity } from "react-native";
 import "../utils/webPolyfills"; // Import web polyfills
 import { ErrorTest } from "../components/ErrorTest";
@@ -6,8 +6,11 @@ import { NotificationSetup } from "../components/NotificationSetup";
 import { NotificationDashboard } from "../components/NotificationDashboard";
 import { WebTestMode } from "../components/WebTestMode";
 import { SettingsScreen } from "../components/SettingsScreen";
+import { AuthScreen } from "../components/AuthScreen";
+import { apiService } from "../services/api";
 
 const VIEWS = {
+  AUTH: 'auth',
   SETUP: 'setup',
   DASHBOARD: 'dashboard',
   SETTINGS: 'settings',
@@ -16,7 +19,123 @@ const VIEWS = {
 type ViewType = (typeof VIEWS)[keyof typeof VIEWS];
 
 const Index = () => {
-  const [currentView, setCurrentView] = useState<ViewType>(VIEWS.SETUP);
+  const [currentView, setCurrentView] = useState<ViewType>(VIEWS.AUTH);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // Debug: Log state changes
+  useEffect(() => {
+    console.log('State changed:', { currentView, isAuthenticated, authLoading });
+  }, [currentView, isAuthenticated, authLoading]);
+
+  useEffect(() => {
+    // Check authentication status on app start
+    const checkAuth = async () => {
+      try {
+        console.log('App startup: Checking authentication...');
+        const authState = apiService.getAuthState();
+        const authenticated = apiService.isAuthenticated();
+        
+        console.log('App startup auth check:', {
+          authenticated,
+          hasTokens: !!authState.tokens,
+          hasUser: !!authState.user,
+          lastAuthAttempt: authState.lastAuthAttempt
+        });
+        
+        setIsAuthenticated(authenticated);
+        
+        if (authenticated) {
+          console.log('User is authenticated, showing setup screen');
+          setCurrentView(VIEWS.SETUP);
+        } else if (authState.lastAuthAttempt) {
+          // User has tried to authenticate before but failed/expired
+          console.log('Showing auth screen due to previous failed attempt');
+          setCurrentView(VIEWS.AUTH);
+        } else {
+          console.log('No authentication found, showing auth screen');
+          setCurrentView(VIEWS.AUTH);
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+
+    checkAuth();
+
+    // Temporarily disable periodic auth check to debug login issue
+    // const authCheckInterval = setInterval(() => {
+    //   const authenticated = apiService.isAuthenticated();
+    //   console.log('Periodic auth check:', { 
+    //     currentlyAuthenticated: isAuthenticated, 
+    //     apiServiceAuthenticated: authenticated,
+    //     currentView 
+    //   });
+    //   
+    //   if (isAuthenticated && !authenticated) {
+    //     console.log('Authentication lost, redirecting to auth screen');
+    //     setIsAuthenticated(false);
+    //     setCurrentView(VIEWS.AUTH);
+    //   }
+    // }, 10000);
+
+    // return () => clearInterval(authCheckInterval);
+  }, [isAuthenticated]);
+
+  const handleAuthSuccess = async () => {
+    console.log('handleAuthSuccess called - transitioning to setup screen');
+    console.log('Current state before update:', { isAuthenticated, currentView });
+    
+    // Force state updates
+    setIsAuthenticated(true);
+    setCurrentView(VIEWS.SETUP);
+    
+    console.log('State update called - should transition to SETUP view');
+    
+    // Wait a bit to ensure authentication state is fully propagated
+    setTimeout(async () => {
+      try {
+        console.log('Authentication successful, ensuring device registration...');
+        console.log('Auth state before device registration:', {
+          isAuthenticated: apiService.isAuthenticated(),
+          hasToken: !!apiService.getAccessToken(),
+          authState: apiService.getAuthState()
+        });
+        
+        const { deviceRegistrationService } = await import('../services/deviceRegistration');
+        const result = await deviceRegistrationService.ensureDeviceRegistration();
+        
+        if (result.success) {
+          console.log('Device registration successful');
+        } else {
+          console.warn('Device registration failed:', result.error);
+        }
+      } catch (error) {
+        console.error('Device registration error:', error);
+      }
+    }, 1000); // Wait 1 second for auth state to stabilize
+  };
+
+  const handleLogout = async () => {
+    await apiService.logout();
+    setIsAuthenticated(false);
+    setCurrentView(VIEWS.AUTH);
+  };
+
+  if (authLoading) {
+    return (
+      <View className="flex-1 justify-center items-center">
+        <Text className="text-lg font-pmedium">Loading...</Text>
+      </View>
+    );
+  }
+
+  // Show auth screen if not authenticated and user is trying to access auth-required features
+  if (currentView === VIEWS.AUTH) {
+    return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
+  }
 
   if (currentView === VIEWS.DASHBOARD) {
     return <NotificationDashboard />;
@@ -62,6 +181,28 @@ const Index = () => {
             </Text>
           </View>
         )}
+
+        {/* Authentication Status */}
+        <View className="mb-4 p-3 bg-gray-50 rounded-lg">
+          <View className="flex-row justify-between items-center">
+            <Text className="text-sm font-pmedium text-slate-700">
+              {isAuthenticated ? '🟢 Authenticated' : '🔴 Not Authenticated'}
+            </Text>
+            <TouchableOpacity
+              onPress={isAuthenticated ? handleLogout : () => setCurrentView(VIEWS.AUTH)}
+              className={`px-3 py-1 rounded ${isAuthenticated ? 'bg-red-100' : 'bg-blue-100'}`}
+            >
+              <Text className={`text-xs font-pmedium ${isAuthenticated ? 'text-red-700' : 'text-blue-700'}`}>
+                {isAuthenticated ? 'Logout' : 'Login'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          {isAuthenticated && (
+            <Text className="text-xs text-slate-500 mt-1">
+              Device registration and sync available
+            </Text>
+          )}
+        </View>
 
         {/* Navigation */}
         <View className="flex-row space-x-2 mb-5">
