@@ -94,28 +94,29 @@ const Index = () => {
     
     console.log('State update called - should transition to SETUP view');
     
+    // TODO: Re-enable device registration after cross-app notification capture is implemented
     // Wait a bit to ensure authentication state is fully propagated
-    setTimeout(async () => {
-      try {
-        console.log('Authentication successful, ensuring device registration...');
-        console.log('Auth state before device registration:', {
-          isAuthenticated: apiService.isAuthenticated(),
-          hasToken: !!apiService.getAccessToken(),
-          authState: apiService.getAuthState()
-        });
-        
-        const { deviceRegistrationService } = await import('../services/deviceRegistration');
-        const result = await deviceRegistrationService.ensureDeviceRegistration();
-        
-        if (result.success) {
-          console.log('Device registration successful');
-        } else {
-          console.warn('Device registration failed:', result.error);
-        }
-      } catch (error) {
-        console.error('Device registration error:', error);
-      }
-    }, 1000); // Wait 1 second for auth state to stabilize
+    // setTimeout(async () => {
+    //   try {
+    //     console.log('Authentication successful, ensuring device registration...');
+    //     console.log('Auth state before device registration:', {
+    //       isAuthenticated: apiService.isAuthenticated(),
+    //       hasToken: !!apiService.getAccessToken(),
+    //       authState: apiService.getAuthState()
+    //     });
+    //     
+    //     const { deviceRegistrationService } = await import('../services/deviceRegistration');
+    //     const result = await deviceRegistrationService.ensureDeviceRegistration();
+    //     
+    //     if (result.success) {
+    //       console.log('Device registration successful');
+    //     } else {
+    //       console.warn('Device registration failed:', result.error);
+    //     }
+    //   } catch (error) {
+    //     console.error('Device registration error:', error);
+    //   }
+    // }, 1000); // Wait 1 second for auth state to stabilize
   };
 
   const handleLogout = async () => {

@@ -32,6 +32,7 @@ export interface NotificationCaptureActions {
   clearAllData: () => Promise<void>;
   registerDevice: () => Promise<boolean>;
   testConnection: () => Promise<boolean>;
+  sendTestNotification: () => Promise<void>;
 }
 
 export function useNotificationCapture(): [NotificationCaptureState, NotificationCaptureActions] {
@@ -168,11 +169,12 @@ export function useNotificationCapture(): [NotificationCaptureState, Notificatio
       if (success) {
         setState(prev => ({ ...prev, isCapturing: true }));
         
+        // TODO: Re-enable device registration after cross-app notification capture is implemented
         // Register device if not already registered
-        const deviceService = getDeviceService();
-        if (!deviceService.isDeviceRegistered() && apiService.isAuthenticated()) {
-          await registerDevice();
-        }
+        // const deviceService = getDeviceService();
+        // if (!deviceService.isDeviceRegistered() && apiService.isAuthenticated()) {
+        //   await registerDevice();
+        // }
       }
       
       return success;
@@ -308,30 +310,34 @@ export function useNotificationCapture(): [NotificationCaptureState, Notificatio
   }, [refreshStats, refreshNotifications]);
 
   const registerDevice = useCallback(async (): Promise<boolean> => {
-    try {
-      // Check authentication first
-      if (!apiService.isAuthenticated()) {
-        setState(prev => ({ ...prev, error: 'User not authenticated' }));
-        return false;
-      }
+    // TODO: Re-enable device registration after cross-app notification capture is implemented
+    console.log('Device registration temporarily disabled - focusing on cross-app notification capture');
+    return true;
+    
+    // try {
+    //   // Check authentication first
+    //   if (!apiService.isAuthenticated()) {
+    //     setState(prev => ({ ...prev, error: 'User not authenticated' }));
+    //     return false;
+    //   }
 
-      const deviceService = getDeviceService();
-      const result = await deviceService.registerDevice();
-      if (!result.success) {
-        setState(prev => ({ ...prev, error: result.error || 'Device registration failed' }));
-      }
-      return result.success;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Device registration failed';
-      // Don't log authentication errors as ERROR level
-      if (errorMessage.includes('not authenticated')) {
-        console.warn('Device registration skipped:', errorMessage);
-      } else {
-        console.error('Device registration error:', errorMessage);
-      }
-      setState(prev => ({ ...prev, error: errorMessage }));
-      return false;
-    }
+    //   const deviceService = getDeviceService();
+    //   const result = await deviceService.registerDevice();
+    //   if (!result.success) {
+    //     setState(prev => ({ ...prev, error: result.error || 'Device registration failed' }));
+    //   }
+    //   return result.success;
+    // } catch (error) {
+    //   const errorMessage = error instanceof Error ? error.message : 'Device registration failed';
+    //   // Don't log authentication errors as ERROR level
+    //   if (errorMessage.includes('not authenticated')) {
+    //     console.warn('Device registration skipped:', errorMessage);
+    //   } else {
+    //     console.error('Device registration error:', errorMessage);
+    //   }
+    //   setState(prev => ({ ...prev, error: errorMessage }));
+    //   return false;
+    // }
   }, []);
 
   const testConnection = useCallback(async (): Promise<boolean> => {
@@ -345,6 +351,21 @@ export function useNotificationCapture(): [NotificationCaptureState, Notificatio
     }
   }, []);
 
+  const sendTestNotification = useCallback(async (): Promise<void> => {
+    try {
+      const captureService = getCaptureService();
+      await captureService.sendTestNotification();
+      
+      // Refresh stats and notifications after a short delay
+      setTimeout(async () => {
+        await refreshStats();
+        await refreshNotifications();
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to send test notification:', error);
+    }
+  }, [refreshStats, refreshNotifications]);
+
   const actions: NotificationCaptureActions = {
     startCapture,
     stopCapture,
@@ -356,6 +377,7 @@ export function useNotificationCapture(): [NotificationCaptureState, Notificatio
     clearAllData,
     registerDevice,
     testConnection,
+    sendTestNotification,
   };
 
   return [state, actions];

@@ -56,18 +56,19 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
 
         // Ensure device is registered after successful authentication (in background)
         setTimeout(async () => {
-          try {
-            console.log('Authentication successful, ensuring device registration...');
-            const deviceResult = await deviceRegistrationService.ensureDeviceRegistration();
-            
-            if (deviceResult.success) {
-              console.log('Device registration ensured successfully');
-            } else {
-              console.warn('Device registration failed:', deviceResult.error);
-            }
-          } catch (deviceError) {
-            console.warn('Device registration error:', deviceError);
-          }
+          // TODO: Re-enable device registration after cross-app notification capture is implemented
+          // try {
+          //   console.log('Authentication successful, ensuring device registration...');
+          //   const deviceResult = await deviceRegistrationService.ensureDeviceRegistration();
+          //   
+          //   if (deviceResult.success) {
+          //     console.log('Device registration ensured successfully');
+          //   } else {
+          //     console.warn('Device registration failed:', deviceResult.error);
+          //   }
+          // } catch (deviceError) {
+          //   console.warn('Device registration error:', deviceError);
+          // }
         }, 100); // Small delay to ensure transition happens first
       } else {
         Alert.alert('Error', result.error || 'Authentication failed');

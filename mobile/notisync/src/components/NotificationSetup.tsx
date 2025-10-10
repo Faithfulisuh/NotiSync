@@ -70,38 +70,46 @@ export const NotificationSetup: React.FC = () => {
   };
 
   const handleRegisterDevice = async () => {
-    // Check if user is authenticated first
-    if (!apiService.isAuthenticated()) {
-      Alert.alert(
-        'Authentication Required',
-        'Please log in to your account first to register this device with the server.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Go to Login', onPress: () => {
-              // Navigate to login screen - you might want to implement navigation here
-              Alert.alert('Login Required', 'Please use the login screen to authenticate first.');
-            }
-          }
-        ]
-      );
-      return;
-    }
+    // TODO: Re-enable after cross-app notification capture is implemented
+    Alert.alert(
+      'Feature Temporarily Disabled',
+      'Device registration is temporarily disabled while we implement cross-app notification capture. Focus is on getting Android NotificationListenerService working first.',
+      [{ text: 'OK' }]
+    );
+    return;
 
-    const success = await actions.registerDevice();
-    if (success) {
-      Alert.alert(
-        'Device Registered! ☁️',
-        'Your device is now connected to the NotiSync server. Notifications will be synced automatically.',
-        [{ text: 'Excellent!' }]
-      );
-    } else {
-      Alert.alert(
-        'Registration Failed',
-        'Could not register device with server. You can still use local capture and try again later.',
-        [{ text: 'OK' }]
-      );
-    }
+    // // Check if user is authenticated first
+    // if (!apiService.isAuthenticated()) {
+    //   Alert.alert(
+    //     'Authentication Required',
+    //     'Please log in to your account first to register this device with the server.',
+    //     [
+    //       { text: 'Cancel', style: 'cancel' },
+    //       {
+    //         text: 'Go to Login', onPress: () => {
+    //           // Navigate to login screen - you might want to implement navigation here
+    //           Alert.alert('Login Required', 'Please use the login screen to authenticate first.');
+    //         }
+    //       }
+    //     ]
+    //   );
+    //   return;
+    // }
+
+    // const success = await actions.registerDevice();
+    // if (success) {
+    //   Alert.alert(
+    //     'Device Registered! ☁️',
+    //     'Your device is now connected to the NotiSync server. Notifications will be synced automatically.',
+    //     [{ text: 'Excellent!' }]
+    //   );
+    // } else {
+    //   Alert.alert(
+    //     'Registration Failed',
+    //     'Could not register device with server. You can still use local capture and try again later.',
+    //     [{ text: 'OK' }]
+    //   );
+    // }
   };
 
   if (Platform.OS === 'web') {
@@ -179,27 +187,22 @@ export const NotificationSetup: React.FC = () => {
         )}
       </View>
 
-      {/* Step 3: Server Connection (Optional) */}
-      <View className={`mb-4 p-3 rounded-lg ${setupStep >= 3 ? 'bg-purple-50 border border-purple-200' : 'bg-gray-50'}`}>
+      {/* Step 3: Server Connection (Temporarily Disabled) */}
+      <View className="mb-4 p-3 rounded-lg bg-gray-100 border border-gray-300">
         <View className="flex-row items-center mb-2">
-          <Text className="text-base font-psemibold text-slate-800 mr-2">
+          <Text className="text-base font-psemibold text-gray-500 mr-2">
             3. Connect to Server
           </Text>
-          <Text className="text-purple-600 font-pmedium">🔗 Optional</Text>
+          <Text className="text-gray-500 font-pmedium">� C oming Soon</Text>
         </View>
-        <Text className="text-sm font-pregular text-slate-600 mb-3">
-          Sync notifications across devices and enable advanced features
+        <Text className="text-sm font-pregular text-gray-500 mb-3">
+          Device registration temporarily disabled while implementing cross-app notification capture
         </Text>
-        {state.isCapturing && (
-          <TouchableOpacity
-            onPress={handleRegisterDevice}
-            className="bg-purple-600 px-4 py-2 rounded-lg"
-          >
-            <Text className="text-white font-psemibold text-center">
-              Register Device
-            </Text>
-          </TouchableOpacity>
-        )}
+        <View className="bg-yellow-100 p-2 rounded border border-yellow-300">
+          <Text className="text-xs font-pregular text-yellow-800">
+            📝 Focus: Implementing Android NotificationListenerService for system-wide capture
+          </Text>
+        </View>
       </View>
 
       {/* Success State */}
@@ -211,6 +214,26 @@ export const NotificationSetup: React.FC = () => {
           <Text className="text-green-700 font-pregular text-center text-sm mt-1">
             NotiSync is now capturing your notifications
           </Text>
+        </View>
+      )}
+
+      {/* Test Notification */}
+      {state.isCapturing && (
+        <View className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+          <Text className="text-sm font-psemibold text-slate-700 mb-2">
+            🧪 Test Capture
+          </Text>
+          <Text className="text-xs font-pregular text-slate-600 mb-3">
+            Send a test notification to verify capture is working
+          </Text>
+          <TouchableOpacity
+            onPress={actions.sendTestNotification}
+            className="bg-yellow-600 px-3 py-2 rounded-lg"
+          >
+            <Text className="text-white font-pmedium text-center text-sm">
+              Send Test Notification
+            </Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -233,6 +256,9 @@ export const NotificationSetup: React.FC = () => {
           </View>
           <Text className="text-xs font-pregular text-slate-500 mt-1">
             Storage: {storageType} {!Storage.isAvailable() && '⚠️'}
+          </Text>
+          <Text className="text-xs font-pregular text-orange-600 mt-2">
+            ⚠️ Note: Only captures notifications sent TO this app, not from other apps
           </Text>
         </View>
       )}

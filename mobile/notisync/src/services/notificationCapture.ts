@@ -184,6 +184,8 @@ class NotificationCaptureService {
       );
 
       console.log('Notification listeners set up successfully');
+      console.log('⚠️  IMPORTANT: Expo notifications only capture notifications sent TO this app, not FROM other apps');
+      console.log('📱 To test: Send a push notification to this app or use Expo push tool');
 
       // Register background task
       if (Device && Device.isDevice) {
@@ -291,19 +293,33 @@ class NotificationCaptureService {
   }
 
   private async handleNotificationReceived(notification: any): Promise<void> {
+    console.log('🔔 Notification received!', {
+      identifier: notification.request?.identifier,
+      title: notification.request?.content?.title,
+      body: notification.request?.content?.body,
+      data: notification.request?.content?.data,
+      configEnabled: this.captureConfig.enabled
+    });
+
     if (!this.captureConfig.enabled) {
+      console.log('❌ Notification capture disabled in config');
       return;
     }
 
     try {
       const capturedNotification = this.extractNotificationData(notification);
+      console.log('📝 Extracted notification data:', capturedNotification);
       
       if (this.shouldCaptureNotification(capturedNotification)) {
+        console.log('✅ Notification passed filters, storing...');
         await this.storeNotification(capturedNotification);
         await this.updateStats('captured');
         
         // Attempt immediate sync if online
         this.syncNotificationInBackground(capturedNotification);
+        console.log('💾 Notification stored and sync initiated');
+      } else {
+        console.log('❌ Notification filtered out');
       }
     } catch (error) {
       console.error('Failed to handle received notification:', error);
@@ -647,6 +663,35 @@ class NotificationCaptureService {
   async clearAllNotifications(): Promise<void> {
     await Storage.removeItem(STORAGE_KEYS.CAPTURED_NOTIFICATIONS);
     await Storage.removeItem(STORAGE_KEYS.NOTIFICATION_STATS);
+  }
+
+  // Test method to send a local notification for testing capture
+  async sendTestNotification(): Promise<void> {
+    if (Platform.OS === 'web' || !Notifications) {
+      console.log('Test notifications not supported on web');
+      return;
+    }
+
+    try {
+      console.log('📤 Sending test notification...');
+      
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Test Notification 📱",
+          body: 'This is a test notification to verify capture is working',
+          data: { 
+            appName: 'NotiSync Test',
+            packageName: 'com.notisync.test',
+            priority: 'high'
+          },
+        },
+        trigger: { seconds: 1 },
+      });
+      
+      console.log('✅ Test notification scheduled');
+    } catch (error) {
+      console.error('❌ Failed to send test notification:', error);
+    }
   }
 }
 

@@ -175,15 +175,92 @@
   - Write unit tests for database operations
   - _Requirements: 1.4, 5.1, 7.2, 7.3_
 
-- [-] 16.2. Implement Android background notification capture service
+- [ ] 16.2. **PRIORITY: Implement Android cross-app notification capture**
 
-
-  - Create Android background service for 24/7 notification listening
-  - Implement notification access permissions and setup flow
-  - Add notification filtering and deduplication logic
-  - Create foreground service with persistent notification
-  - Write unit tests for background service functionality
-  - _Requirements: 1.1, 1.4_
+  **Phase 1: Setup Native Android Module**
+  - [ ] 16.2.1. Eject from Expo to bare React Native workflow
+    - Run `npx expo eject` to get access to native Android code
+    - Update build configuration for native modules
+    - Test that existing functionality still works after ejection
+  
+  - [ ] 16.2.2. Create Android NotificationListenerService
+    - Create `NotificationListenerService.java` in `android/app/src/main/java/`
+    - Implement `onNotificationPosted()` and `onNotificationRemoved()` methods
+    - Add notification data extraction (title, text, package name, timestamp)
+    - Create notification filtering logic (exclude system notifications)
+  
+  - [ ] 16.2.3. Create React Native bridge module
+    - Create `NotificationCaptureModule.java` to bridge Android service to React Native
+    - Implement methods: `startListening()`, `stopListening()`, `requestPermission()`
+    - Add event emitters to send captured notifications to React Native
+    - Create TypeScript definitions for the native module
+  
+  **Phase 2: Permissions and Setup Flow**
+  - [ ] 16.2.4. Implement notification access permission flow
+    - Add `BIND_NOTIFICATION_LISTENER_SERVICE` permission to AndroidManifest.xml
+    - Create permission check methods in native module
+    - Implement deep link to Android notification access settings
+    - Add permission status detection and user guidance
+  
+  - [ ] 16.2.5. Create setup wizard for notification access
+    - Update NotificationSetup component with Android-specific steps
+    - Add visual guide for enabling notification access in Android settings
+    - Implement permission status checking and retry logic
+    - Create fallback UI for devices that don't support notification access
+  
+  **Phase 3: Background Service Implementation**
+  - [ ] 16.2.6. Create foreground service for 24/7 capture
+    - Implement Android foreground service to keep notification listener active
+    - Add persistent notification showing capture status
+    - Create service lifecycle management (start/stop/restart)
+    - Implement battery optimization whitelist guidance
+  
+  - [ ] 16.2.7. Add notification filtering and processing
+    - Filter out system notifications (android, systemui packages)
+    - Implement duplicate notification detection and removal
+    - Add app-based filtering (allow/block specific apps)
+    - Create notification priority detection and mapping
+  
+  **Phase 4: Integration with Existing System**
+  - [ ] 16.2.8. Update notification capture service
+    - Replace Expo notification listeners with native Android bridge
+    - Integrate native captured notifications with existing storage system
+    - Update notification data model to handle Android-specific fields
+    - Maintain backward compatibility with existing notification handling
+  
+  - [ ] 16.2.9. Add Android-specific notification features
+    - Extract notification actions (reply, dismiss, etc.)
+    - Capture notification icons and images
+    - Handle notification groups and bundled notifications
+    - Add support for Android notification channels
+  
+  **Phase 5: Testing and Optimization**
+  - [ ] 16.2.10. Implement comprehensive testing
+    - Create test notifications from various apps (WhatsApp, Gmail, etc.)
+    - Test notification capture during app backgrounding
+    - Verify battery usage optimization
+    - Test service restart after device reboot
+  
+  - [ ] 16.2.11. Add performance monitoring
+    - Monitor memory usage of notification service
+    - Track notification processing latency
+    - Add error handling for service crashes
+    - Implement automatic service recovery mechanisms
+  
+  **Phase 6: User Experience**
+  - [ ] 16.2.12. Create notification access onboarding
+    - Add step-by-step tutorial for enabling notification access
+    - Create troubleshooting guide for common permission issues
+    - Add visual indicators showing capture status
+    - Implement notification access verification
+  
+  - [ ] 16.2.13. Add capture status monitoring
+    - Show real-time notification capture count
+    - Display last captured notification info
+    - Add capture health indicators (service running, permissions granted)
+    - Create notification capture logs for debugging
+  
+  _Requirements: 1.1, 1.4, Android-specific system integration_
 
 - [x] 16.3. Implement background processing and rules engine
 
@@ -239,6 +316,34 @@
   - **Fix network connectivity** - Ensure mobile app can connect to backend server despite different IP addresses
   - **Add notification capture status indicator** - Show real-time status of notification capture service
   - _Requirements: 1.1, 1.4, 7.1_
+
+- [ ] 16.8. **IMMEDIATE: Prepare for Android native development**
+
+  - [ ] 16.8.1. **Backup current Expo project**
+    - Create full backup of current working Expo project
+    - Document current functionality and test results
+    - Export APK build for reference
+    - Save current configuration and dependencies
+  
+  - [ ] 16.8.2. **Research ejection impact**
+    - Analyze which Expo features will be lost after ejection
+    - Identify alternative solutions for Expo-specific functionality
+    - Plan migration strategy for existing features
+    - Document potential breaking changes
+  
+  - [ ] 16.8.3. **Setup development environment for native Android**
+    - Install Android Studio and SDK tools
+    - Setup Android emulator for testing
+    - Configure React Native CLI and build tools
+    - Test native module development workflow
+  
+  - [ ] 16.8.4. **Create proof of concept for NotificationListenerService**
+    - Create minimal Android project with NotificationListenerService
+    - Test notification access permissions on real device
+    - Verify notification data extraction capabilities
+    - Document Android version compatibility requirements
+  
+  _Requirements: 1.1, 1.4, Development environment setup_
 
 - [ ] 16.8. Implement Expo push notifications
 
